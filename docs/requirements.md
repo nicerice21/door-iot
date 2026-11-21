@@ -24,7 +24,7 @@
 [クラウド基盤 (Azure - 学生クレジット枠内)]
   ├─ Azure Functions (Consumption Plan)
   │    ├─ HTTP Trigger  : 状態受信API / ゲートウェイ死活受信 / Web向け状態取得API
-  │    └─ Timer Trigger : 親機(PC)・子機(TWELITE)の死活判定バッチ
+  │    └─ 死活判定 : GET 時のリクエスト時刻で評価（Timer Trigger は将来拡張）
   ├─ Azure Table Storage
   │    ├─ Devices テーブル : 子機の現在状態・最終開時刻・メタデータ(名称/マップ座標等)
   │    ├─ Gateways テーブル: 親機(PC)の最終通信時刻・ステータス
@@ -101,7 +101,7 @@
 
 ### 4.2 クラウドバックエンド（Azure）
 
-- **技術スタック**: Azure Functions + Azure Table Storage
+- **技術スタック**: Azure Functions (C# / .NET 8 Isolated Worker) + Azure Table Storage
 - **主な機能**:
   1. **テレメトリ受信 API (`POST /api/telemetry`)**:
      - PCゲートウェイから送信されたデータ（子機ID、開閉状態、電池電圧、電波強度LQI、ゲートウェイID）を受信する。
@@ -113,13 +113,14 @@
      - PCゲートウェイの最終生存時刻 (`gatewayLastSeenAt`) を更新する（テレメトリ受信時に同時更新でも可）。
   3. **状態一覧取得 API (`GET /api/doors`)**:
      - Webフロントエンド向けに、全子機の現在状態、開放開始時刻(`openedAt`)、死活ステータス、およびマップ表示用メタデータをJSONで返却する。
-  4. **死活判定ロジック（Timer Trigger または GET時評価）**:
+  4. **死活判定ロジック（GET時評価を採用）**:
+     - プロトタイプでは `GET /api/doors` のリクエスト時刻を基準に判定する。常時監視や通知が必要になった段階で Timer Trigger を追加する。
      - **親機（PCゲートウェイ）死活**: 最終通信から閾値（例：5分）以上経過している場合、システム全体を `gateway_offline` と判定する。
      - **子機（TWELITE）死活**: 子機の最終通信から閾値（例：定期送信間隔×2.5倍）以上経過している場合、該当子機を `device_offline`（電池切れ・圏外）と判定する。
 
 ### 4.3 公開Webフロントエンド
 
-- **技術スタック**: Azure Static Web Apps (HTML/CSS/TypeScript, React または Vue / Vanilla JS)
+- **技術スタック**: Azure Static Web Apps (Vite + React + TypeScript)
 - **主な機能**:
   1. **ドア状態一覧・カード表示（プロトタイプ基本画面）**:
      - 各ドア（子機1〜10台）の名称、現在の状態（`開` / `閉` / `オフライン`）を視覚的に分かりやすく表示する。
@@ -207,3 +208,65 @@
    - 実機1台での開閉テスト、電池抜き／PC停止時のオフライン表示確認。
 5. **Phase 5: 拡張機能実装（複数台対応・フロアマップUI）**
    - 2〜10台へのスケール確認と、フロアマップ上での可視化UIの追加。
+
+---
+
+## 8. 実装構成（雛形作成時点の確定事項）
+
+### 8.1 技術スタックの確定
+
+| 領域 | 決定 | 備考 |
+| :--- | :--- | :--- |
+| クラウドAPI | Azure Functions (C# / .NET 8 Isolated Worker) | ゲートウェイと同じ C# で統一 |
+| 共有ロジック | `DoorMonitor.Core` (net8.0) | 状態遷移・TWELITE 電文パースを Gateway / Functions / テストで共有 |
+| PCゲートウェイ | C# / .NET 8 / WinForms タスクトレイ | 単一 exe（self-contained）配布 |
+| Web | Vite + React + TypeScript | Azure Static Web Apps へ `dist/` を配置 |
+| テスト | xUnit（Core）/ Vitest（Web） | 状態遷移・パーサ・経過時間表示の純粋関数 |
+| ローカル開発 | InMemory リポジトリ（既定） | Azure 未接続で API と Web を結合確認できる |
+
+### 8.2 死活判定の方式
+
+プロトタイプでは `GET /api/doors` のリクエスト時刻を基準に、`lastSeenAt` と閾値の差分で判定する。Timer Trigger は採用しない。理由は次のとおり。
+
+- Web は数秒〜10秒ごとにポーリングするため、取得時評価で表示要件を満たせる。
+- Timer と状態更新の競合を避けられ、実装とテストが単純になる。
+- Timer の実行回数を削減でき、学生クレジットの範囲に収めやすい。
+
+将来「一定時間開いたままのドアを通知する」などのバックグラウンド処理が必要になった時点で Timer Trigger を追加する。
+
+### 8.3 リポジトリ構成
+
+```text
+door-iot/
+├─ docs/
+│  ├─ requirements.md          # 本ドキュメント（設計の正本）
+│  └─ development.md           # 開発・実行手順
+├─ src/
+│  ├─ DoorMonitor.Core/        # 共有モデル・状態遷移・TWELITE パーサ
+│  ├─ DoorMonitor.Gateway/     # C# WinForms タスクトレイ常駐アプリ
+│  └─ DoorMonitor.Functions/   # Azure Functions (C# / .NET 8 Isolated)
+├─ tests/
+│  └─ DoorMonitor.Core.Tests/  # xUnit
+├─ web/                        # Vite + React + TypeScript
+├─ DoorMonitor.sln
+└─ Directory.Build.props
+```
+
+### 8.4 認証・公開範囲
+
+- `GET /api/doors` は要件どおり認証なしで公開する。
+- `POST /api/telemetry` と `POST /api/heartbeat` は `X-Api-Key` ヘッダで保護する。
+- `ApiKey` が未設定の場合はローカル開発用として認証を省略する。本番環境では必ず設定する。
+- Web 画面から書き込み API を呼ぶ機能は持たせない。
+
+### 8.5 ローカル開発と Azure の切り替え
+
+`Storage__Mode` でリポジトリ実装を切り替える。
+
+- `InMemory`: プロセス内の辞書に保持する。再起動で消えるため、画面確認・API 結合試験用。
+- `Table`: Azure Table Storage の `Devices` / `Gateways` テーブルに保持する。
+
+### 8.6 実装状況（2026-11-21 時点）
+
+- 実装済み: `App_Twelite` 0x81 電文パース（LRC8 検証・DI1 の開閉変換）、デバウンス、開閉状態の遷移、API 3 本、Table / InMemory リポジトリ、ポーリング Web 画面、トレイアプリの骨格。
+- 未実装: 実機での通し試験、History テーブル、フロアマップ表示、送信失敗時の再送キュー、Azure へのデプロイ設定（IaC）。

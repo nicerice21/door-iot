@@ -1,0 +1,13 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "FUNCTIONS_WORKER_RUNTIME": "dotnet-isolated",
+    "Storage__Mode": "InMemory",
+    "TableStorageConnection": "",
+    "ApiKey": "",
+    "Gateway__Id": "gw-pc-01",
+    "Monitoring__GatewayOfflineThresholdSec": "300",
+    "Monitoring__DeviceOfflineThresholdSec": "300"
+  }
+}
