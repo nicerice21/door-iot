@@ -23,6 +23,4 @@ public sealed record DoorSnapshot
     public int? BatteryMv { get; init; }
 
     public int? Lqi { get; init; }
-
-    public DoorMeta Meta { get; init; } = new();
 }

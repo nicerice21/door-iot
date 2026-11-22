@@ -56,20 +56,17 @@ public sealed class DoorStateReducerTests
     }
 
     [Fact]
-    public void Preserves_cloud_side_metadata()
+    public void Preserves_display_name()
     {
         var existing = DoorStateReducer.Apply(null, Report(DoorState.Closed, T0)) with
         {
             Name = "研究棟 3F 北側ドア",
-            Meta = new DoorMeta { Floor = "3F", MapX = 42.5, MapY = 18.0 },
         };
 
         var updated = DoorStateReducer.Apply(existing, Report(DoorState.Open, T0.AddMinutes(1)));
 
         Assert.Equal("研究棟 3F 北側ドア", updated.Name);
-        Assert.Equal("3F", updated.Meta.Floor);
-        Assert.Equal(42.5, updated.Meta.MapX);
-        Assert.Equal(18.0, updated.Meta.MapY);
+        Assert.Equal(DoorState.Open, updated.State);
     }
 
     private static TelemetryReport Report(DoorState state, DateTimeOffset observedAt, bool isHeartbeat = false) => new()

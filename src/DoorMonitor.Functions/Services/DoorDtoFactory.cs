@@ -22,7 +22,6 @@ internal static class DoorDtoFactory
             IsOnline: isOnline,
             Telemetry: door.BatteryMv is null && door.Lqi is null
                 ? null
-                : new TelemetryDto(door.BatteryMv, door.Lqi),
-            Meta: door.Meta);
+                : new TelemetryDto(door.BatteryMv, door.Lqi));
     }
 }

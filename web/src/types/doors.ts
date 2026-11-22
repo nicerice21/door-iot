@@ -2,14 +2,6 @@ export type DoorState = 'open' | 'closed'
 
 export type GatewayStatus = 'online' | 'offline'
 
-export interface DoorMeta {
-  floor: string | null
-  mapId: string | null
-  mapX: number | null
-  mapY: number | null
-  alertThresholdSec: number
-}
-
 export interface DoorTelemetry {
   batteryMv: number | null
   lqi: number | null
@@ -25,7 +17,6 @@ export interface Door {
   lastSeenAt: string
   isOnline: boolean
   telemetry: DoorTelemetry | null
-  meta: DoorMeta
 }
 
 export interface Gateway {

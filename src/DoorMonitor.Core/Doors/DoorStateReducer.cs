@@ -36,7 +36,6 @@ public static class DoorStateReducer
             LastSeenAt = observedAt,
             BatteryMv = report.BatteryMv,
             Lqi = report.Lqi,
-            Meta = current?.Meta ?? new DoorMeta(),
         };
     }
 
