@@ -1,5 +1,5 @@
-import type { DoorsResponse } from '../types/doors'
-import { createMockResponse } from './mock'
+import type { DoorHistoryResponse, DoorsResponse } from '../types/doors'
+import { createMockHistory, createMockResponse } from './mock'
 
 const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
 const useMock = import.meta.env.VITE_USE_MOCK === 'true'
@@ -20,4 +20,22 @@ export async function fetchDoors(signal?: AbortSignal): Promise<DoorsResponse> {
   }
 
   return (await response.json()) as DoorsResponse
+}
+
+/** GET /api/doors/{deviceId}/history を取得する。 */
+export async function fetchDoorHistory(deviceId: string, signal?: AbortSignal): Promise<DoorHistoryResponse> {
+  if (useMock) {
+    return createMockHistory(deviceId)
+  }
+
+  const response = await fetch(`${apiBaseUrl}/api/doors/${encodeURIComponent(deviceId)}/history`, {
+    signal,
+    headers: { Accept: 'application/json' },
+  })
+
+  if (!response.ok) {
+    throw new Error(`API が ${response.status} を返しました`)
+  }
+
+  return (await response.json()) as DoorHistoryResponse
 }

@@ -1,5 +1,7 @@
+import { useState } from 'react'
 import type { Door } from '../types/doors'
 import { alertLevel, formatElapsed, formatRelative, formatTime } from '../lib/time'
+import { DoorHistory } from './DoorHistory'
 
 interface DoorCardProps {
   door: Door
@@ -7,6 +9,7 @@ interface DoorCardProps {
 }
 
 export function DoorCard({ door, now }: DoorCardProps) {
+  const [showHistory, setShowHistory] = useState(false)
   const isOpen = door.state === 'open'
   const stateClass = !door.isOnline ? 'offline' : isOpen ? 'open' : 'closed'
   const statusLabel = !door.isOnline ? 'オフライン' : isOpen ? '開' : '閉'
@@ -48,7 +51,17 @@ export function DoorCard({ door, now }: DoorCardProps) {
         <span title="電池電圧">電池 {battery}</span>
         <span title="電波強度">LQI {lqi}</span>
         <span title="最終受信">最終受信 {formatRelative(door.lastSeenAt, now)}</span>
+        <button
+          type="button"
+          className="history-toggle"
+          aria-expanded={showHistory}
+          onClick={() => setShowHistory((current) => !current)}
+        >
+          {showHistory ? '履歴を閉じる' : '履歴'}
+        </button>
       </footer>
+
+      {showHistory && <DoorHistory deviceId={door.deviceId} />}
     </article>
   )
 }
