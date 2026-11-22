@@ -9,7 +9,7 @@ using DoorMonitor.Gateway.Serial;
 namespace DoorMonitor.Gateway.Services;
 
 /// <summary>
-/// シリアル受信 → パース → デバウンス → クラウド送信 を統括する。
+/// シリアル受信 → パース → デバウンス → 再送キュー → クラウド送信 を統括する。
 /// 異常時は一定間隔でシリアル再接続を試み、状態をトレイアイコンへ通知する。
 /// </summary>
 public sealed class GatewayService : IAsyncDisposable
@@ -18,10 +18,14 @@ public sealed class GatewayService : IAsyncDisposable
     private readonly InMemoryLog _log;
     private readonly CloudApiClient _api;
     private readonly DoorEventDebouncer _debouncer;
+    private readonly TelemetryOutbox _outbox;
+    private readonly TelemetryDispatcher _dispatcher;
 
     private CancellationTokenSource? _cts;
     private Task _serialTask = Task.CompletedTask;
     private Task _heartbeatTask = Task.CompletedTask;
+    private Task _dispatchTask = Task.CompletedTask;
+    private volatile bool _serialConnected;
 
     public GatewayService(GatewaySettings settings, InMemoryLog log)
     {
@@ -29,6 +33,12 @@ public sealed class GatewayService : IAsyncDisposable
         _log = log;
         _api = new CloudApiClient(settings.ApiBaseUrl, settings.ApiKey);
         _debouncer = new DoorEventDebouncer(TimeSpan.FromMilliseconds(Math.Max(0, settings.DebounceMilliseconds)));
+
+        var queueDirectory = string.IsNullOrWhiteSpace(settings.TelemetryQueueDirectory)
+            ? GatewaySettings.DefaultTelemetryQueueDirectory
+            : settings.TelemetryQueueDirectory;
+        _outbox = new TelemetryOutbox(queueDirectory, Math.Max(1, settings.TelemetryQueueCapacity));
+        _dispatcher = new TelemetryDispatcher(_outbox, SendTelemetryAsync, OnSendFailed, OnSendRecovered);
     }
 
     public event EventHandler<GatewayStatusChangedEventArgs>? StatusChanged;
@@ -44,11 +54,13 @@ public sealed class GatewayService : IAsyncDisposable
         var token = _cts.Token;
 
         _log.Add($"ゲートウェイ {_settings.GatewayId} を開始しました（{_settings.ComPort} → {_settings.ApiBaseUrl}）");
+        _log.Add($"再送キュー: {_outbox.DirectoryPath}（未送信 {_dispatcher.PendingCount} 件 / 上限 {_outbox.Capacity} 件）");
         Notify(GatewayRuntimeStatus.Starting, "起動しました");
 
         // UI スレッドの SynchronizationContext を引き継がないよう、専用タスクで動かす。
         _serialTask = Task.Run(() => RunSerialLoopAsync(token), CancellationToken.None);
         _heartbeatTask = Task.Run(() => RunHeartbeatLoopAsync(token), CancellationToken.None);
+        _dispatchTask = Task.Run(() => _dispatcher.RunAsync(token), CancellationToken.None);
     }
 
     private async Task RunSerialLoopAsync(CancellationToken cancellationToken)
@@ -59,12 +71,13 @@ public sealed class GatewayService : IAsyncDisposable
             {
                 using var reader = new MonostickReader(_settings.ComPort, _settings.BaudRate);
                 reader.Open();
+                _serialConnected = true;
                 _log.Add($"{_settings.ComPort} を開きました（{_settings.BaudRate} bps）");
                 Notify(GatewayRuntimeStatus.SerialConnected, $"{_settings.ComPort} 接続中");
 
                 await foreach (var line in reader.ReadLinesAsync(cancellationToken).ConfigureAwait(false))
                 {
-                    await HandleLineAsync(line, cancellationToken).ConfigureAwait(false);
+                    HandleLine(line);
                 }
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -73,6 +86,7 @@ public sealed class GatewayService : IAsyncDisposable
             }
             catch (Exception ex)
             {
+                _serialConnected = false;
                 _log.Add($"{_settings.ComPort} の受信に失敗しました: {ex.Message}", LogLevel.Warning);
                 Notify(GatewayRuntimeStatus.SerialDisconnected, $"{_settings.ComPort} 未接続");
 
@@ -89,7 +103,7 @@ public sealed class GatewayService : IAsyncDisposable
         }
     }
 
-    private async Task HandleLineAsync(string line, CancellationToken cancellationToken)
+    private void HandleLine(string line)
     {
         if (!TwelitePacketParser.TryParse(line, out var packet, out var error) || packet is null)
         {
@@ -121,20 +135,44 @@ public sealed class GatewayService : IAsyncDisposable
             ObservedAt = now,
         };
 
-        try
+        var result = _dispatcher.Enqueue(report);
+        if (!result.Succeeded)
         {
-            await _api.SendTelemetryAsync(report, cancellationToken).ConfigureAwait(false);
-            _log.Add($"{report.DeviceId} {report.State.ToString().ToLowerInvariant()} を送信しました");
+            _log.Add($"テレメトリを再送キューへ保存できませんでした: {result.Error}", LogLevel.Error);
+            return;
+        }
+
+        if (result.DroppedCount > 0)
+        {
+            _log.Add(
+                $"再送キューが上限（{_outbox.Capacity} 件）に達したため、古いテレメトリを {result.DroppedCount} 件破棄しました",
+                LogLevel.Warning);
+        }
+    }
+
+    private async Task SendTelemetryAsync(TelemetryReport report, CancellationToken cancellationToken)
+    {
+        await _api.SendTelemetryAsync(report, cancellationToken).ConfigureAwait(false);
+        _log.Add($"{report.DeviceId} {report.State.ToString().ToLowerInvariant()} を送信しました");
+    }
+
+    private void OnSendFailed(Exception exception, int pendingCount)
+    {
+        _log.Add($"テレメトリ送信に失敗しました（再送待ち {pendingCount} 件）: {exception.Message}", LogLevel.Error);
+        Notify(GatewayRuntimeStatus.ApiUnreachable, "API 通信エラー");
+    }
+
+    private void OnSendRecovered(int pendingCount)
+    {
+        _log.Add($"テレメトリの送信を再開しました（残り {pendingCount} 件）");
+
+        if (_serialConnected)
+        {
             Notify(GatewayRuntimeStatus.SerialConnected, $"{_settings.ComPort} 接続中");
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        else
         {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            _log.Add($"テレメトリ送信に失敗しました: {ex.Message}", LogLevel.Error);
-            Notify(GatewayRuntimeStatus.ApiUnreachable, "API 通信エラー");
+            Notify(GatewayRuntimeStatus.SerialDisconnected, $"{_settings.ComPort} 未接続");
         }
     }
 
@@ -189,7 +227,7 @@ public sealed class GatewayService : IAsyncDisposable
 
         try
         {
-            await Task.WhenAll(_serialTask, _heartbeatTask).ConfigureAwait(false);
+            await Task.WhenAll(_serialTask, _heartbeatTask, _dispatchTask).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
@@ -204,6 +242,7 @@ public sealed class GatewayService : IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         await StopAsync().ConfigureAwait(false);
+        _dispatcher.Dispose();
         _api.Dispose();
     }
 }
