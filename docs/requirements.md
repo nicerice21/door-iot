@@ -329,10 +329,10 @@ GitHub Actions（`.github/workflows/ci.yml`）で .NET のビルド・テスト�
 - **書き込み順**: 履歴を書いてから現在状態を更新する。状態更新後に失敗しても、再送時には状態が変わっていないため履歴が失われない。
 - **保持期間**: 自動削除はしない。件数が問題になった時点で、Timer Trigger による古い行の削除を追加する。
 
-### 8.9 実装状況（2026-11-22 時点）
+### 8.9 実装状況（2026-11-23 時点）
 
-- 実装済み: `App_Twelite` 0x81 電文パース（LRC8 検証・DI1 の開閉変換）、デバウンス、開閉状態の遷移、API 4 本、Table / InMemory リポジトリ、ポーリング Web 画面、トレイアプリの骨格、テレメトリの再送キュー、開閉履歴、Bicep による Azure リソース定義。
-- 未実装: 実機での通し試験、フロアマップ表示、Azure への実デプロイ（コード配置と CD）。
+- 実装済み: `App_Twelite` 0x81 電文パース（LRC8 検証・DI1 の開閉変換）、デバウンス、開閉状態の遷移、API 4 本、Table / InMemory リポジトリ、ポーリング Web 画面、トレイアプリの骨格、テレメトリの再送キュー、開閉履歴、Bicep による Azure リソース定義（2026-11-23 に `eastasia` でリソース作成を確認）。
+- 未実装: 実機での通し試験、フロアマップ表示、Functions と Web のコード配置と CD。
 
 ### 8.10 Azure へのデプロイ（IaC）
 
@@ -341,6 +341,7 @@ GitHub Actions（`.github/workflows/ci.yml`）で .NET のビルド・テスト�
 - **作成するリソース**: Storage Account（Standard LRS。Table Storage と Functions の内部状態を兼用）、Functions（Consumption / Linux / .NET 8 Isolated）、Static Web Apps（Free）、Log Analytics + Application Insights。
 - **技術選定の固定**: 8.1 の選定（Functions / Table Storage / Static Web Apps / ポーリング）をそのまま反映する。有料 SKU は使わない。
 - **コスト管理**: Application Insights の取り込み量に 0.1 GB/日の上限を設定し、無料枠（月 5 GB）を超えないようにする。
+- **リージョン**: サブスクリプションの「許可された場所」ポリシーに従い、許可されたリージョンを `location` で指定する。Static Web Apps は Free 対応リージョン（`centralus` / `eastus2` / `eastasia` / `westeurope` / `westus2`）の中から選ぶ。リソースグループの場所とリソースの場所は一致しなくてよい。
 - **シークレット**: API キーは `@secure()` パラメータで受け取り、リポジトリへ保存しない。Bicep 側で 16 文字以上を検証し、空のキーで本番環境が公開されることを防ぐ。
 - **責務の分離**: Bicep はリソースの作成だけを担当する。コード配置（`func azure functionapp publish`、Static Web Apps のデプロイトークン）は手動または別ワークフローで行う。
 - **検証**: CI で `az bicep build` を実行し、テンプレートの構文を確認する。実際のデプロイは Azure サブスクリプションが必要なため CI では行わない。
