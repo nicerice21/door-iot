@@ -1,5 +1,4 @@
 using System.Net.Http.Json;
-using System.Text.Json;
 using DoorMonitor.Core.Telemetry;
 
 namespace DoorMonitor.Gateway.Cloud;
@@ -7,8 +6,6 @@ namespace DoorMonitor.Gateway.Cloud;
 /// <summary>Azure Functions への HTTPS 送信。認証は X-Api-Key ヘッダで行う。</summary>
 public sealed class CloudApiClient : IDisposable
 {
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
-
     private readonly HttpClient _http;
     private readonly Uri _baseUri;
     private readonly string _apiKey;
@@ -30,7 +27,7 @@ public sealed class CloudApiClient : IDisposable
     {
         using var request = new HttpRequestMessage(HttpMethod.Post, new Uri(_baseUri, path))
         {
-            Content = JsonContent.Create(payload, options: JsonOptions),
+            Content = JsonContent.Create(payload, options: TelemetryJson.Options),
         };
 
         if (!string.IsNullOrWhiteSpace(_apiKey))

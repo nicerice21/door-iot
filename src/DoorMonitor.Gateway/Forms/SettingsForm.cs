@@ -98,6 +98,8 @@ public sealed class SettingsForm : Form
             HeartbeatIntervalSeconds = (int)_heartbeatSeconds.Value,
             DebounceMilliseconds = _current.DebounceMilliseconds,
             ReconnectDelaySeconds = _current.ReconnectDelaySeconds,
+            TelemetryQueueDirectory = _current.TelemetryQueueDirectory,
+            TelemetryQueueCapacity = _current.TelemetryQueueCapacity,
         };
 
         DialogResult = DialogResult.OK;

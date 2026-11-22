@@ -43,7 +43,8 @@ npm run lint
 ```text
 TWELITE (App_Twelite 0x81)
   → MONOSTICK → Gateway (パース + デバウンス)
-  → POST /api/telemetry
+  → 再送キュー（%LOCALAPPDATA%\DoorMonitor\queue に永続化）
+  → POST /api/telemetry（古い電文から順に送信。失敗時は指数バックオフで再試行）
   → DoorStateReducer（openedAt / lastSeenAt の更新）
   → Devices / Gateways テーブル（またはメモリ）
   → GET /api/doors（ポーリング） → React 画面（毎秒カウント）
@@ -138,6 +139,21 @@ dotnet run --project src\DoorMonitor.Gateway
 
 設定ファイル: `%LOCALAPPDATA%\DoorMonitor\gateway.settings.json`
 
+### テレメトリの再送キュー
+
+受信したテレメトリは送信前にディスクへ保存されるため、API が落ちていても失われません。
+
+- 保存先は既定で `%LOCALAPPDATA%\DoorMonitor\queue`（1 件 1 ファイルの JSON、連番）
+- 送信は古い順。失敗した電文が残っている間は後続を送らない（`openedAt` の順序を守るため）
+- 失敗時は 5 秒から最大 60 秒の指数バックオフで再試行
+- 上限は既定 1,000 件。超過時は古いものから破棄し、ログに警告を残す
+- ゲートウェイのハートビートは死活情報のため再送しない
+
+| キー | 既定値 | 内容 |
+| :--- | :--- | :--- |
+| `TelemetryQueueDirectory` | `%LOCALAPPDATA%\DoorMonitor\queue` | 再送キューの保存先 |
+| `TelemetryQueueCapacity` | `1000` | キューの上限件数 |
+
 ### 単一 exe の作成
 
 ```powershell
@@ -162,7 +178,9 @@ dotnet publish src\DoorMonitor.Gateway -p:PublishProfile=win-x64
 
 ## 8. 既知の制約
 
-- テレメトリ送信に失敗した場合、その電文は破棄されます（再送キューは未実装）。
+- 再送は at-least-once のため、送信直後にゲートウェイが停止すると同じ電文が再度送られることがあります（状態遷移は冪等なので最終状態は変わりません）。
+- キューが上限に達すると古い電文から破棄されます。長時間の障害に備える場合は `TelemetryQueueCapacity` を増やしてください。
+- キューのファイルを書き込めない場合（ディスク容量不足など）はログにエラーを記録し、その電文は破棄されます。
 - `InMemory` モードは Functions のプロセス再起動で状態が消えます。
 - History テーブル、フロアマップ表示、Timer Trigger によるバックグラウンド死活判定は未実装です。
 - 実機（TWELITE + MONOSTICK）での通し試験はまだ行っていません。
