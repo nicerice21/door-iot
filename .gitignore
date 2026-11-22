@@ -16,6 +16,7 @@ publish/
 # Azure Functions
 local.settings.json
 .azure/
+.azurite/
 
 # Node / Vite
 node_modules/
