@@ -9,7 +9,7 @@
   - `dotnet test tests\DoorMonitor.Core.Tests\DoorMonitor.Core.Tests.csproj`
   - `cd web` → `npm install` → `npm test` → `npm run build` → `npm run lint`
   - `dotnet publish src\DoorMonitor.Gateway -p:PublishProfile=win-x64`
-- 実機（TWELITE + MONOSTICK）での通し試験、Azure へのデプロイ、History テーブル、マップ表示は未実装。
+- 実機（TWELITE + MONOSTICK）での通し試験、Azure へのデプロイ、マップ表示は未実装。
 - ブランチは `main`、リモートは `nicerice21/door-iot`。運用ルールは未定義なので勝手に決めない。
 
 ## 設計の正本
