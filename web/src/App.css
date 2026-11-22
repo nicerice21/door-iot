@@ -137,12 +137,6 @@
   line-height: 1.35;
 }
 
-.door-location {
-  margin-top: 2px;
-  color: #7b8794;
-  font-size: 0.82rem;
-}
-
 .state-badge {
   flex-shrink: 0;
   padding: 4px 12px;

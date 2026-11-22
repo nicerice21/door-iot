@@ -16,7 +16,6 @@ public sealed record DoorDto(
     DateTimeOffset LastChangedAt,
     DateTimeOffset LastSeenAt,
     bool IsOnline,
-    TelemetryDto? Telemetry,
-    DoorMeta Meta);
+    TelemetryDto? Telemetry);
 
 public sealed record TelemetryDto(int? BatteryMv, int? Lqi);

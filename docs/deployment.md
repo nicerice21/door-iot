@@ -168,6 +168,8 @@ Invoke-RestMethod -Method Post `
 
 Web はビルド時に API の URL を埋め込みます。
 
+> このバージョンで `GET /api/doors` のレスポンスから `meta` を削除しました。Web は `meta` を参照しないため、Web を先に（または Functions と同時に）配置してください。古い Web を残したまま Functions だけを更新すると、カードの表示に失敗します。
+
 ```powershell
 $env:VITE_API_BASE_URL = $apiBaseUrl
 Push-Location web

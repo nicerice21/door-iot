@@ -1,6 +1,7 @@
 export type AlertLevel = 'normal' | 'warning' | 'danger'
 
-/** 警告閾値の6倍を危険域とする（既定 5分 → 30分）。 */
+/** プロトタイプ固定の警告閾値（5分）。危険域はその6倍（30分）。 */
+export const ALERT_THRESHOLD_SEC = 300
 const DANGER_MULTIPLIER = 6
 
 export function formatElapsed(openedAt: string | null, now: number): string {
@@ -25,20 +26,19 @@ export function formatElapsed(openedAt: string | null, now: number): string {
   return `${seconds}秒`
 }
 
-export function alertLevel(openedAt: string | null, now: number, thresholdSec: number): AlertLevel {
+export function alertLevel(openedAt: string | null, now: number): AlertLevel {
   const opened = openedAt === null ? Number.NaN : Date.parse(openedAt)
   if (Number.isNaN(opened)) {
     return 'normal'
   }
 
-  const threshold = thresholdSec > 0 ? thresholdSec : 300
   const elapsedSeconds = Math.max(0, (now - opened) / 1000)
 
-  if (elapsedSeconds >= threshold * DANGER_MULTIPLIER) {
+  if (elapsedSeconds >= ALERT_THRESHOLD_SEC * DANGER_MULTIPLIER) {
     return 'danger'
   }
 
-  if (elapsedSeconds >= threshold) {
+  if (elapsedSeconds >= ALERT_THRESHOLD_SEC) {
     return 'warning'
   }
 

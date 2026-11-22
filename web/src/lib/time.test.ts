@@ -26,15 +26,15 @@ describe('formatElapsed', () => {
 })
 
 describe('alertLevel', () => {
-  it('warns at the threshold and becomes danger at six times the threshold', () => {
-    expect(alertLevel(secondsAgo(299), NOW, 300)).toBe('normal')
-    expect(alertLevel(secondsAgo(300), NOW, 300)).toBe('warning')
-    expect(alertLevel(secondsAgo(1799), NOW, 300)).toBe('warning')
-    expect(alertLevel(secondsAgo(1800), NOW, 300)).toBe('danger')
+  it('warns at 5 minutes and becomes danger at 30 minutes', () => {
+    expect(alertLevel(secondsAgo(299), NOW)).toBe('normal')
+    expect(alertLevel(secondsAgo(300), NOW)).toBe('warning')
+    expect(alertLevel(secondsAgo(1799), NOW)).toBe('warning')
+    expect(alertLevel(secondsAgo(1800), NOW)).toBe('danger')
   })
 
-  it('uses a 5 minute default for invalid thresholds', () => {
-    expect(alertLevel(secondsAgo(301), NOW, 0)).toBe('warning')
+  it('handles missing timestamps', () => {
+    expect(alertLevel(null, NOW)).toBe('normal')
   })
 })
 

@@ -14,7 +14,7 @@ export function DoorCard({ door, now }: DoorCardProps) {
   const stateClass = !door.isOnline ? 'offline' : isOpen ? 'open' : 'closed'
   const statusLabel = !door.isOnline ? 'オフライン' : isOpen ? '開' : '閉'
   const level = door.isOnline && isOpen
-    ? alertLevel(door.openedAt, now, door.meta.alertThresholdSec)
+    ? alertLevel(door.openedAt, now)
     : 'normal'
 
   const battery = door.telemetry?.batteryMv == null
@@ -25,10 +25,7 @@ export function DoorCard({ door, now }: DoorCardProps) {
   return (
     <article className={`door-card state-${stateClass} level-${level}`}>
       <header className="door-card-header">
-        <div>
-          <h2>{door.name}</h2>
-          <p className="door-location">{door.meta.floor ?? 'フロア未設定'}</p>
-        </div>
+        <h2>{door.name}</h2>
         <span className={`state-badge state-${stateClass}`}>{statusLabel}</span>
       </header>
 
