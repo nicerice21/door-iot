@@ -14,10 +14,10 @@ targetScope = 'resourceGroup'
 @maxLength(8)
 param environmentName string = 'dev'
 
-@description('リソースの場所。リソースグループの場所を既定にする。')
+@description('リソースの場所。サブスクリプションのポリシーで許可されたリージョンを指定する。既定はリソースグループの場所。')
 param location string = resourceGroup().location
 
-@description('Static Web Apps の場所。Free プランは対応リージョンが限られる。')
+@description('Static Web Apps の場所。Free プランは centralus / eastus2 / eastasia / westeurope / westus2 のみ対応する。')
 @allowed([
   'centralus'
   'eastus2'
