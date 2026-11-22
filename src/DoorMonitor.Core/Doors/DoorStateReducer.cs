@@ -39,4 +39,27 @@ public static class DoorStateReducer
             Meta = current?.Meta ?? new DoorMeta(),
         };
     }
+
+    /// <summary>
+    /// 状態が変化した場合の履歴イベントを作る。変化がなければ null。
+    /// 初回受信は比較対象がないため記録しない。
+    /// </summary>
+    public static DoorEvent? CreateEvent(DoorSnapshot? current, DoorSnapshot updated)
+    {
+        ArgumentNullException.ThrowIfNull(updated);
+
+        if (current is null || current.State == updated.State)
+        {
+            return null;
+        }
+
+        return new DoorEvent
+        {
+            DeviceId = updated.DeviceId,
+            State = updated.State,
+            ChangedAt = updated.LastChangedAt,
+            // 開いたイベントでは開放開始は変化時刻そのものなので持たない。
+            OpenedAt = updated.State == DoorState.Closed ? current.OpenedAt : null,
+        };
+    }
 }
