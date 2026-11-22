@@ -122,13 +122,13 @@ func start --project src\DoorMonitor.Functions
 
 | テーブル | PartitionKey | RowKey | 主な列 |
 | :--- | :--- | :--- | :--- |
-| `Devices` | `door` | デバイスID | `State`, `OpenedAt`, `LastChangedAt`, `LastSeenAt`, `BatteryMv`, `Lqi`, `MetaJson` |
+| `Devices` | `door` | デバイスID | `Name`, `State`, `OpenedAt`, `LastChangedAt`, `LastSeenAt`, `BatteryMv`, `Lqi` |
 | `Gateways` | `gateway` | ゲートウェイID | `LastSeenAt` |
 | `DoorEvents` | デバイスID | 変化時刻を反転した 19 桁の連番 | `State`, `ChangedAt`, `OpenedAt` |
 
 `DoorEvents` は開閉が変化したときだけ 1 行追加します。RowKey の昇順が新しい順になるため、履歴は `limit` 件だけを効率よく取得できます。RowKey は変化時刻から決まるので、再送が重複しても同じ行を上書きします。
 
-`MetaJson` に `floor` / `mapId` / `mapX` / `mapY` / `alertThresholdSec` を JSON で保持します。ファームウェアを変更せずに表示情報を追加できるようにするためです。
+`Name` は表示名です。未設定の場合は API が `ドア {logicalId}` を返します。旧バージョンが使用していた `MetaJson` 列は読み書きしません（次に `Devices` の行を更新したとき、Replace により削除されます）。
 
 ## 5. Web フロントエンド
 
@@ -211,7 +211,7 @@ dotnet publish src\DoorMonitor.Gateway -p:PublishProfile=win-x64
 - 履歴は開閉が変化した受信だけを記録します。初回受信や定期ハートビートは残りません。
 - `DoorEvents` テーブルは自動削除されません。件数が問題になった時点で、Timer Trigger などによる古い行の削除を追加してください。
 - `InMemory` モードは Functions のプロセス再起動で状態が消えます。履歴も子機ごとに直近 500 件だけ保持します。
-- フロアマップ表示、複数台（2〜10台）でのスケール確認、Timer Trigger によるバックグラウンド死活判定は未実装です。
+- Timer Trigger によるバックグラウンド死活判定は未実装です。複数台運用とフロアマップ表示はプロトタイプの対象外です。
 - Azure へのデプロイは 2026-11-23 に `eastasia` で完了しています（リソース作成、Functions / Web のコード配置、実機での通し確認）。
 - 学生サブスクリプションには「許可された場所」のポリシーがあり、`location` に許可リージョンを指定する必要があります（[deployment.md](deployment.md) 3.1）。
 - Linux の Consumption プランは 2028-09-30 に提供終了予定です。長期運用する場合は Flex Consumption への移行を検討してください（技術選定の変更になるため、要件定義 8.1 も合わせて更新が必要です）。
@@ -228,6 +228,6 @@ TWELITE 1 台（MONOSTICK 経由）で、次の流れを確認しました。
 
 ### 確認中に分かった表示の仕様
 
-- **表示名**: 子機から送られるのはデバイスIDと論理IDだけです。表示名（`Devices` の `Name`）が未設定の場合、API は `ドア {logicalId}` を返します（`DoorDtoFactory` のフォールバック）。名前を変えるには表示メタデータの設定が必要です。
+- **表示名**: 子機から送られるのはデバイスIDと論理IDだけです。表示名（`Devices` の `Name`）が未設定の場合、API は `ドア {logicalId}` を返します（`DoorDtoFactory` のフォールバック）。プロトタイプでは名前を設定する API/UI を持たないため、通常は `ドア 1` のまま表示されます。これは実機の論理ID 1 に対する仕様どおりの表示です。
 - **カードが出るタイミング**: 最初のテレメトリ（定期ハートビートを含む）で `Devices` の行が作られるため、開閉操作の前でも「閉」のカードが表示されます。死活監視のため、この動作を前提にしています。
-- **名前の一時的な変更**: Storage Explorer などで `Devices` テーブルの `Name` を書き換えると、次のポーリングから表示に反映されます。テレメトリは `Name` を上書きしないため、値は保持されます。`MetaJson` も同じように保持されます。
+- **名前を変える場合**: Storage Explorer などで `Devices` テーブルの `Name` を直接編集すると、次のポーリングから反映されます。テレメトリは `Name` を上書きしません。ただし、プロトタイプのサポート範囲外の操作です。

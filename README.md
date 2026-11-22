@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/nicerice21/door-iot/actions/workflows/ci.yml/badge.svg)](https://github.com/nicerice21/door-iot/actions/workflows/ci.yml)
 
-EngineeringDesign入門のプロトタイプ。TWELITE とリードスイッチでドアの開閉を検知し、Windows PC の常駐ゲートウェイから Azure Functions へ送信、Web ブラウザで状態と「開いてからの経過時間」を確認するシステムです。
+EngineeringDesign入門のプロトタイプ。TWELITE 1台とリードスイッチでドアの開閉を検知し、Windows PC の常駐ゲートウェイから Azure Functions へ送信、Web ブラウザで状態と「開いてからの経過時間」を確認するシステムです。
 
 設計の正本は [docs/requirements.md](docs/requirements.md) です。実装の詳細と運用手順は [docs/development.md](docs/development.md) を参照してください。
 
@@ -103,7 +103,9 @@ PR では .NET・Web・Bicep のジョブ結果を確認できます。
 ## 現在の実装範囲
 
 - 実装済み: TWELITE `App_Twelite` 電文パーサ、開閉状態の遷移ロジック、Azure Functions の4 API、ポーリング Web 画面、開閉履歴の表示、C# トレイアプリ、送信失敗時の再送キュー、Azure リソース定義（Bicep）、Azure へのデプロイ、実機（TWELITE + MONOSTICK）での通し確認
-- 未実装: フロアマップ表示、複数台（2〜10台）でのスケール確認、デプロイの自動化（CD）
+- 1台構成のプロトタイプは完成（2026-11-23）
+- プロトタイプの対象外: 複数台運用、フロアマップ表示
+- 残課題（運用上の改善）: オフライン表示（電池抜き・PC停止）の実機確認、デプロイの自動化（CD）
 
 ## ライセンス
 
