@@ -63,6 +63,19 @@ jobs:
       - name: Lint
         run: npm run lint
 
+  infra:
+    name: Bicep build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Bicep CLI
+        run: az bicep install
+
+      - name: Build
+        run: az bicep build --file infra/main.bicep --stdout > /dev/null
+
   gateway-publish:
     name: Gateway publish (win-x64)
     # 配布物の生成は main に取り込まれた時点で確認する。PR では時間をかけない。

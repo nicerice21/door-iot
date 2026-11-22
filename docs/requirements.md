@@ -272,10 +272,13 @@
 
 ```text
 door-iot/
-├─ .github/workflows/ci.yml    # GitHub Actions（ビルド・テスト）
+├─ .github/workflows/ci.yml    # GitHub Actions（ビルド・テスト・Bicep 検証）
 ├─ docs/
 │  ├─ requirements.md          # 本ドキュメント（設計の正本）
-│  └─ development.md           # 開発・実行手順
+│  ├─ development.md           # 開発・実行手順
+│  └─ deployment.md            # Azure へのデプロイ手順
+├─ infra/
+│  └─ main.bicep               # Azure リソース定義（IaC）
 ├─ src/
 │  ├─ DoorMonitor.Core/        # 共有モデル・状態遷移・TWELITE パーサ
 │  ├─ DoorMonitor.Gateway/     # C# WinForms タスクトレイ常駐アプリ
@@ -303,7 +306,7 @@ door-iot/
 
 ### 8.6 CI
 
-GitHub Actions（`.github/workflows/ci.yml`）で .NET のビルド・テストと Web のテスト・ビルド・lint を継続的に確認する。ゲートウェイの単一 exe の publish は `main` への push 時のみ実行し、PR の待ち時間を抑える。
+GitHub Actions（`.github/workflows/ci.yml`）で .NET のビルド・テスト、Web のテスト・ビルド・lint、Bicep の構文検証を継続的に確認する。ゲートウェイの単一 exe の publish は `main` への push 時のみ実行し、PR の待ち時間を抑える。
 
 ### 8.7 テレメトリの再送キュー
 
@@ -328,5 +331,16 @@ GitHub Actions（`.github/workflows/ci.yml`）で .NET のビルド・テスト�
 
 ### 8.9 実装状況（2026-11-22 時点）
 
-- 実装済み: `App_Twelite` 0x81 電文パース（LRC8 検証・DI1 の開閉変換）、デバウンス、開閉状態の遷移、API 4 本、Table / InMemory リポジトリ、ポーリング Web 画面、トレイアプリの骨格、テレメトリの再送キュー、開閉履歴。
-- 未実装: 実機での通し試験、フロアマップ表示、Azure へのデプロイ設定（IaC）。
+- 実装済み: `App_Twelite` 0x81 電文パース（LRC8 検証・DI1 の開閉変換）、デバウンス、開閉状態の遷移、API 4 本、Table / InMemory リポジトリ、ポーリング Web 画面、トレイアプリの骨格、テレメトリの再送キュー、開閉履歴、Bicep による Azure リソース定義。
+- 未実装: 実機での通し試験、フロアマップ表示、Azure への実デプロイ（コード配置と CD）。
+
+### 8.10 Azure へのデプロイ（IaC）
+
+リソースの作成は `infra/main.bicep` で行う。手順は `docs/deployment.md` にまとめる。
+
+- **作成するリソース**: Storage Account（Standard LRS。Table Storage と Functions の内部状態を兼用）、Functions（Consumption / Linux / .NET 8 Isolated）、Static Web Apps（Free）、Log Analytics + Application Insights。
+- **技術選定の固定**: 8.1 の選定（Functions / Table Storage / Static Web Apps / ポーリング）をそのまま反映する。有料 SKU は使わない。
+- **コスト管理**: Application Insights の取り込み量に 0.1 GB/日の上限を設定し、無料枠（月 5 GB）を超えないようにする。
+- **シークレット**: API キーは `@secure()` パラメータで受け取り、リポジトリへ保存しない。Bicep 側で 16 文字以上を検証し、空のキーで本番環境が公開されることを防ぐ。
+- **責務の分離**: Bicep はリソースの作成だけを担当する。コード配置（`func azure functionapp publish`、Static Web Apps のデプロイトークン）は手動または別ワークフローで行う。
+- **検証**: CI で `az bicep build` を実行し、テンプレートの構文を確認する。実際のデプロイは Azure サブスクリプションが必要なため CI では行わない。
