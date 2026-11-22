@@ -98,12 +98,12 @@ PR では .NET・Web・Bicep のジョブ結果を確認できます。
 
 ## Azure へのデプロイ
 
-`infra/main.bicep` で Storage Account / Functions / Static Web Apps / Application Insights を作成します。手順とコストの注意は [docs/deployment.md](docs/deployment.md) を参照してください。
+`infra/main.bicep` で Storage Account / Functions / Static Web Apps / Application Insights を作成します。サブスクリプションに「許可された場所」のポリシーがある場合は `location` に許可リージョンを指定してください。手順とコストの注意は [docs/deployment.md](docs/deployment.md) を参照してください。
 
 ## 現在の実装範囲
 
-- 実装済み: TWELITE `App_Twelite` 電文パーサ、開閉状態の遷移ロジック、Azure Functions の4 API、ポーリング Web 画面、開閉履歴の表示、C# トレイアプリ、送信失敗時の再送キュー、Azure リソース定義（Bicep）
-- 未実装: フロアマップ表示、Azure への実デプロイ、実機での通し試験
+- 実装済み: TWELITE `App_Twelite` 電文パーサ、開閉状態の遷移ロジック、Azure Functions の4 API、ポーリング Web 画面、開閉履歴の表示、C# トレイアプリ、送信失敗時の再送キュー、Azure リソース定義（Bicep）と `eastasia` でのリソース作成
+- 未実装: フロアマップ表示、Functions / Web のコード配置、実機での通し試験
 
 ## ライセンス
 

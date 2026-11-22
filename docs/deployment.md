@@ -27,12 +27,52 @@
 
 Bicep は Azure CLI に含まれるものを使います（`az bicep install` で最新化できます）。
 
+### 2.1 ログインでつまずいたとき
+
+`AADSTS50076`（MFA が必要）で `az login` が失敗する場合は、CLI のトークンキャッシュを消してデバイスコード方式で入り直します。
+
+```powershell
+az account clear
+Remove-Item -Force "$env:USERPROFILE\.azure\msal_token_cache.*" -ErrorAction SilentlyContinue
+az login --use-device-code
+```
+
+学生サブスクリプションが見つからない（`No subscriptions found`）ときは、契約したアカウントとテナントを確認します。
+
+```powershell
+az account tenant list -o table
+az login --tenant "<テナントIDまたはドメイン>" --use-device-code
+```
+
 ## 3. リソースを作成する
+
+### 3.1 許可されたリージョンを確認する
+
+サブスクリプションに「許可された場所（Allowed locations）」のポリシーがあると、既定のリソースグループの場所（この例では `japaneast`）では `RequestDisallowedByAzure` で失敗します。先に許可されたリージョンを確認してください。
+
+```powershell
+$sub = az account show --query id -o tsv
+
+# 「Allowed resource locations」などの割り当てを探す
+az policy assignment list --scope "/subscriptions/$sub" `
+  --query "[].{name:name, displayName:displayName}" -o table
+
+# 割り当てのパラメータに許可リージョンの配列（listOfAllowedLocations など）が入る
+az policy assignment show --name "<割り当て名>" --scope "/subscriptions/$sub" `
+  --query parameters -o json
+```
+
+- `location` は Functions / Storage / Log Analytics / Application Insights を作る場所です。許可されたリージョンから選びます。
+- `staticWebAppLocation` は Static Web Apps の場所です。Free プランは `centralus` / `eastus2` / `eastasia` / `westeurope` / `westus2` のみ対応するため、**許可リージョンと Free 対応リージョンの両方に含まれる場所**を選びます。
+- リソースグループの場所とリソースの場所は一致している必要はありません。リソースグループはそのままで、`location` だけ変えて再デプロイできます。
+- このリポジトリでは、学生サブスクリプションの許可リージョンだった `eastasia` で作成を確認しています（2026-11-23）。
+
+### 3.2 リソースグループと API キーを用意する
 
 ```powershell
 az login
 
-# リソースグループ（場所は任意。以降のリソースは既定でこの場所に作られる）
+# リソースグループの場所はメタデータ。リソースの場所は location で指定する
 az group create --name rg-door-iot --location japaneast
 
 # API キーを生成する（16 文字以上。Bicep 側でも検証している）
@@ -40,12 +80,21 @@ $bytes = New-Object byte[] 32
 [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
 $apiKey = -join ($bytes | ForEach-Object { $_.ToString('x2') })
 
+$location = "eastasia"       # 許可されたリージョンに置き換える
+$swaLocation = "eastasia"    # 許可リージョンかつ Static Web Apps Free 対応リージョン
+```
+
+### 3.3 デプロイする
+
+```powershell
 az deployment group create `
   --name door-iot `
   --resource-group rg-door-iot `
   --template-file infra/main.bicep `
   --parameters environmentName=dev `
   --parameters apiKey=$apiKey `
+  --parameters location=$location `
+  --parameters staticWebAppLocation=$swaLocation `
   --query properties.outputs -o json
 ```
 
