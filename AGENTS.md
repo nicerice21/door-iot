@@ -4,12 +4,12 @@
 
 - 要件定義に加えて、実装雛形（Core / Gateway / Functions / Web / Tests）が存在する。CI は GitHub Actions（`.github/workflows/ci.yml`）で .NET と Web のビルド・テストを実行する。
 - 構成: `README.md` / `LICENSE` (Apache-2.0) / `AGENTS.md` / `docs/requirements.md` / `docs/development.md` / `src/` / `tests/` / `web/`
-- ビルドやテストのコマンドを推測して書かない。以下は動作確認済み（2026-11-21）。
+- ビルドやテストのコマンドを推測して書かない。以下は動作確認済み（2026-11-22）。
   - `dotnet build DoorMonitor.sln`
   - `dotnet test tests\DoorMonitor.Core.Tests\DoorMonitor.Core.Tests.csproj`
   - `cd web` → `npm install` → `npm test` → `npm run build` → `npm run lint`
   - `dotnet publish src\DoorMonitor.Gateway -p:PublishProfile=win-x64`
-- 実機（TWELITE + MONOSTICK）での通し試験、Azure へのデプロイ、History テーブル、マップ表示、再送キューは未実装。
+- 実機（TWELITE + MONOSTICK）での通し試験、Azure へのデプロイ、History テーブル、マップ表示は未実装。
 - ブランチは `main`、リモートは `nicerice21/door-iot`。運用ルールは未定義なので勝手に決めない。
 
 ## 設計の正本

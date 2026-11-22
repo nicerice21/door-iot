@@ -80,6 +80,8 @@ dotnet publish src\DoorMonitor.Gateway -p:PublishProfile=win-x64
 
 COM ポートや API URL はトレイアイコンの「設定...」から変更できます。設定は `%LOCALAPPDATA%\DoorMonitor\gateway.settings.json` に保存されます。
 
+送信に失敗したテレメトリは `%LOCALAPPDATA%\DoorMonitor\queue` に保存され、API の復旧後に受信順で再送されます。
+
 ## CI
 
 GitHub Actions（`.github/workflows/ci.yml`）で次を実行します。
@@ -92,8 +94,8 @@ PR では .NET と Web のジョブ結果を確認できます。
 
 ## 現在の実装範囲
 
-- 実装済み: TWELITE `App_Twelite` 電文パーサ、開閉状態の遷移ロジック、Azure Functions の3 API、ポーリング Web 画面、C# トレイアプリの骨格
-- 未実装: フロアマップ表示、History テーブル、送信失敗時の再送キュー、Azure へのデプロイ設定（IaC）、実機での通し試験
+- 実装済み: TWELITE `App_Twelite` 電文パーサ、開閉状態の遷移ロジック、Azure Functions の3 API、ポーリング Web 画面、C# トレイアプリ、送信失敗時の再送キュー
+- 未実装: フロアマップ表示、History テーブル、Azure へのデプロイ設定（IaC）、実機での通し試験
 
 ## ライセンス
 
