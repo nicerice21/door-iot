@@ -34,6 +34,17 @@ jobs:
       - name: Test
         run: dotnet test tests\DoorMonitor.Core.Tests\DoorMonitor.Core.Tests.csproj --no-build
 
+      - name: Check PowerShell syntax
+        shell: pwsh
+        run: |
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile(
+            (Resolve-Path 'scripts\deploy.ps1'), [ref]$null, [ref]$errors) | Out-Null
+          if ($errors.Count -gt 0) {
+            $errors | Format-List
+            throw 'scripts/deploy.ps1 の構文エラーがあります。'
+          }
+
   web:
     name: Web test & build
     runs-on: ubuntu-latest

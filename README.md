@@ -19,6 +19,8 @@ door-iot/
 │  └─ deployment.md            # Azure へのデプロイ手順
 ├─ infra/
 │  └─ main.bicep               # Azure リソース定義（IaC）
+├─ scripts/
+│  └─ deploy.ps1               # Azure へのデプロイ（Bicep・Functions・Web）
 ├─ src/
 │  ├─ DoorMonitor.Core/        # 共有モデル・状態遷移・TWELITE パーサ
 │  ├─ DoorMonitor.Gateway/     # C# WinForms タスクトレイ常駐アプリ
@@ -89,7 +91,7 @@ COM ポートや API URL はトレイアイコンの「設定...」から変更�
 
 GitHub Actions（`.github/workflows/ci.yml`）で次を実行します。
 
-- `.NET`: `dotnet build DoorMonitor.sln` と Core のテスト（`windows-latest`）
+- `.NET`: `dotnet build DoorMonitor.sln` と Core のテスト、`scripts/deploy.ps1` の構文チェック（`windows-latest`）
 - Web: `npm ci` / `npm test` / `npm run build` / `npm run lint`（`ubuntu-latest`）
 - Bicep: `az bicep build` による `infra/main.bicep` の構文検証（`ubuntu-latest`）
 - ゲートウェイの単一 exe の publish（`main` への push 時のみ、`windows-latest`）
@@ -99,6 +101,16 @@ PR では .NET・Web・Bicep のジョブ結果を確認できます。
 ## Azure へのデプロイ
 
 `infra/main.bicep` で Storage Account / Functions / Static Web Apps / Application Insights を作成します。サブスクリプションに「許可された場所」のポリシーがある場合は `location` に許可リージョンを指定してください。手順とコストの注意は [docs/deployment.md](docs/deployment.md) を参照してください。
+
+`scripts/deploy.ps1` で、Bicep の検証・デプロイ、Web / Functions の配置、API の確認をまとめて実行できます。
+
+```powershell
+# 初回（API キーを指定）
+pwsh .\scripts\deploy.ps1 -ApiKey $apiKey
+
+# 2 回目以降（既存の API キーを再利用）
+pwsh .\scripts\deploy.ps1 -Target Code
+```
 
 ## 現在の実装範囲
 

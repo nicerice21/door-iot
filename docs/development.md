@@ -37,6 +37,7 @@ npm run lint
 | `src/DoorMonitor.Functions` | HTTP API、Table Storage / メモリリポジトリ |
 | `web` | 状態カード表示、ポーリング、毎秒の経過時間更新 |
 | `infra` | Azure リソース定義（Bicep） |
+| `scripts` | Azure へのデプロイスクリプト（`deploy.ps1`） |
 | `tests/DoorMonitor.Core.Tests` | Core の単体テスト |
 
 Azure へのデプロイ手順は [deployment.md](deployment.md) を参照してください。
@@ -194,7 +195,7 @@ dotnet publish src\DoorMonitor.Gateway -p:PublishProfile=win-x64
 
 | ジョブ | ランナー | 内容 |
 | :--- | :--- | :--- |
-| `.NET build & test` | `windows-latest` | `dotnet restore` → `dotnet build DoorMonitor.sln` → Core のテスト |
+| `.NET build & test` | `windows-latest` | `dotnet restore` → `dotnet build DoorMonitor.sln` → Core のテスト → `scripts/deploy.ps1` の構文チェック |
 | `Web test & build` | `ubuntu-latest` | `npm ci` → `npm test` → `npm run build` → `npm run lint` |
 | `Bicep build` | `ubuntu-latest` | `az bicep build --file infra/main.bicep` |
 | `Gateway publish (win-x64)` | `windows-latest` | `main` への push 時のみ単一 exe を publish |
