@@ -46,6 +46,14 @@ public sealed class TelemetryFunction
         var existing = await _repository.GetDoorAsync(report.DeviceId, cancellationToken).ConfigureAwait(false);
         var updated = DoorStateReducer.Apply(existing, report);
 
+        // 履歴を先に書く。状態更新だけ成功して履歴が欠けることを避ける。
+        // 再送で同じ電文が届いても、変化時刻から決まる行を上書きするだけで重複しない。
+        var doorEvent = DoorStateReducer.CreateEvent(existing, updated);
+        if (doorEvent is not null)
+        {
+            await _repository.UpsertDoorEventAsync(doorEvent, cancellationToken).ConfigureAwait(false);
+        }
+
         await _repository.UpsertDoorAsync(updated, cancellationToken).ConfigureAwait(false);
         await _repository.TouchGatewayAsync(report.GatewayId, report.ObservedAt, cancellationToken).ConfigureAwait(false);
 

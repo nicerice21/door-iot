@@ -94,8 +94,8 @@ PR では .NET と Web のジョブ結果を確認できます。
 
 ## 現在の実装範囲
 
-- 実装済み: TWELITE `App_Twelite` 電文パーサ、開閉状態の遷移ロジック、Azure Functions の3 API、ポーリング Web 画面、C# トレイアプリ、送信失敗時の再送キュー
-- 未実装: フロアマップ表示、History テーブル、Azure へのデプロイ設定（IaC）、実機での通し試験
+- 実装済み: TWELITE `App_Twelite` 電文パーサ、開閉状態の遷移ロジック、Azure Functions の4 API、ポーリング Web 画面、開閉履歴の表示、C# トレイアプリ、送信失敗時の再送キュー
+- 未実装: フロアマップ表示、Azure へのデプロイ設定（IaC）、実機での通し試験
 
 ## ライセンス
 

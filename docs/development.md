@@ -45,9 +45,11 @@ TWELITE (App_Twelite 0x81)
   → MONOSTICK → Gateway (パース + デバウンス)
   → 再送キュー（%LOCALAPPDATA%\DoorMonitor\queue に永続化）
   → POST /api/telemetry（古い電文から順に送信。失敗時は指数バックオフで再試行）
+  → DoorEvents（開閉が変化したときだけ履歴を記録）
   → DoorStateReducer（openedAt / lastSeenAt の更新）
   → Devices / Gateways テーブル（またはメモリ）
   → GET /api/doors（ポーリング） → React 画面（毎秒カウント）
+  → GET /api/doors/{deviceId}/history（カードの「履歴」を開いたとき）
 ```
 
 ## 4. Azure Functions
@@ -66,6 +68,7 @@ func start --project src\DoorMonitor.Functions
 | メソッド | パス | 認証 | 用途 |
 | :--- | :--- | :--- | :--- |
 | `GET` | `/api/doors` | なし（公開） | Web 向け状態一覧 |
+| `GET` | `/api/doors/{deviceId}/history?limit=20` | なし（公開） | 開閉履歴（新しい順、既定 20 件・最大 100 件） |
 | `POST` | `/api/telemetry` | `X-Api-Key`（設定時） | 子機テレメトリ受信 |
 | `POST` | `/api/heartbeat` | `X-Api-Key`（設定時） | ゲートウェイ死活通知 |
 
@@ -103,6 +106,9 @@ func start --project src\DoorMonitor.Functions
 | :--- | :--- | :--- | :--- |
 | `Devices` | `door` | デバイスID | `State`, `OpenedAt`, `LastChangedAt`, `LastSeenAt`, `BatteryMv`, `Lqi`, `MetaJson` |
 | `Gateways` | `gateway` | ゲートウェイID | `LastSeenAt` |
+| `DoorEvents` | デバイスID | 変化時刻を反転した 19 桁の連番 | `State`, `ChangedAt`, `OpenedAt` |
+
+`DoorEvents` は開閉が変化したときだけ 1 行追加します。RowKey の昇順が新しい順になるため、履歴は `limit` 件だけを効率よく取得できます。RowKey は変化時刻から決まるので、再送が重複しても同じ行を上書きします。
 
 `MetaJson` に `floor` / `mapId` / `mapX` / `mapY` / `alertThresholdSec` を JSON で保持します。ファームウェアを変更せずに表示情報を追加できるようにするためです。
 
@@ -123,6 +129,8 @@ npm run dev
 開発サーバーは `/api` を `http://localhost:7071` へ proxy します。Static Web Apps と Functions を別オリジンに置く場合は `VITE_API_BASE_URL` を設定してください（API は `Access-Control-Allow-Origin: *` を返します）。
 
 経過時間はサーバーでは計算しません。`openedAt` をブラウザ側で毎秒差分計算するため、ポーリング間隔に依存しません。
+
+各カードの「履歴」を押すと、直近 20 件の開閉履歴を取得して表示します。履歴の取得は開いたときだけ行い、ポーリングはしません。閉じたイベントには、対応する開放時間（`changedAt - openedAt`）も表示します。
 
 ## 6. PC ゲートウェイ
 
@@ -181,6 +189,8 @@ dotnet publish src\DoorMonitor.Gateway -p:PublishProfile=win-x64
 - 再送は at-least-once のため、送信直後にゲートウェイが停止すると同じ電文が再度送られることがあります（状態遷移は冪等なので最終状態は変わりません）。
 - キューが上限に達すると古い電文から破棄されます。長時間の障害に備える場合は `TelemetryQueueCapacity` を増やしてください。
 - キューのファイルを書き込めない場合（ディスク容量不足など）はログにエラーを記録し、その電文は破棄されます。
-- `InMemory` モードは Functions のプロセス再起動で状態が消えます。
-- History テーブル、フロアマップ表示、Timer Trigger によるバックグラウンド死活判定は未実装です。
+- 履歴は開閉が変化した受信だけを記録します。初回受信や定期ハートビートは残りません。
+- `DoorEvents` テーブルは自動削除されません。件数が問題になった時点で、Timer Trigger などによる古い行の削除を追加してください。
+- `InMemory` モードは Functions のプロセス再起動で状態が消えます。履歴も子機ごとに直近 500 件だけ保持します。
+- フロアマップ表示、Timer Trigger によるバックグラウンド死活判定は未実装です。
 - 実機（TWELITE + MONOSTICK）での通し試験はまだ行っていません。

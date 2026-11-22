@@ -38,3 +38,14 @@ export interface DoorsResponse {
   gateway: Gateway
   doors: Door[]
 }
+
+export interface DoorEvent {
+  state: DoorState
+  changedAt: string
+  openedAt: string | null
+}
+
+export interface DoorHistoryResponse {
+  deviceId: string
+  events: DoorEvent[]
+}

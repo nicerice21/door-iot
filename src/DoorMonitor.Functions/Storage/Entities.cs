@@ -52,6 +52,49 @@ public sealed class GatewayEntity : ITableEntity
     public DateTimeOffset LastSeenAt { get; set; }
 }
 
+/// <summary>DoorEvents テーブルの行。RowKey は時刻を反転した連番で、昇順が新しい順になる。</summary>
+public sealed class DoorEventEntity : ITableEntity
+{
+    public string PartitionKey { get; set; } = string.Empty;
+
+    public string RowKey { get; set; } = string.Empty;
+
+    public DateTimeOffset? Timestamp { get; set; }
+
+    public ETag ETag { get; set; }
+
+    public string State { get; set; } = DoorStateJsonConverter.ClosedValue;
+
+    public DateTimeOffset ChangedAt { get; set; }
+
+    public DateTimeOffset? OpenedAt { get; set; }
+}
+
+internal static class DoorEventMapper
+{
+    public static DoorEventEntity ToEntity(DoorEvent doorEvent) => new()
+    {
+        PartitionKey = doorEvent.DeviceId,
+        RowKey = CreateRowKey(doorEvent.ChangedAt),
+        State = doorEvent.State == DoorState.Open ? DoorStateJsonConverter.OpenValue : DoorStateJsonConverter.ClosedValue,
+        ChangedAt = doorEvent.ChangedAt,
+        OpenedAt = doorEvent.OpenedAt,
+    };
+
+    public static DoorEvent ToEvent(DoorEventEntity entity) => new()
+    {
+        DeviceId = entity.PartitionKey,
+        State = entity.State == DoorStateJsonConverter.OpenValue ? DoorState.Open : DoorState.Closed,
+        ChangedAt = entity.ChangedAt,
+        OpenedAt = entity.OpenedAt,
+    };
+
+    /// <summary>時刻を反転した 19 桁の行キー。RowKey の昇順が新しい順になる。</summary>
+    public static string CreateRowKey(DateTimeOffset changedAt)
+        => (DateTimeOffset.MaxValue.UtcTicks - changedAt.UtcTicks)
+            .ToString("D19", System.Globalization.CultureInfo.InvariantCulture);
+}
+
 internal static class DoorEntityMapper
 {
     public static DoorEntity ToEntity(DoorSnapshot snapshot) => new()

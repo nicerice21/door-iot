@@ -1,4 +1,4 @@
-import type { DoorsResponse } from '../types/doors'
+import type { DoorEvent, DoorHistoryResponse, DoorsResponse } from '../types/doors'
 
 /**
  * 開発用のダミーデータ。Azure Functions を起動せずに画面を確認するときは
@@ -70,4 +70,43 @@ export function createMockResponse(): DoorsResponse {
       },
     ],
   }
+}
+
+/**
+ * 開発用のダミー履歴。現在のモック状態と矛盾しないよう、ドアが開いていれば
+ * 「開」から始まる並びを返す。並びは常に新しい順。
+ */
+export function createMockHistory(deviceId: string): DoorHistoryResponse {
+  const door = createMockResponse().doors.find((item) => item.deviceId === deviceId)
+  const lastChanged = door === undefined ? Date.now() - 45 * 60_000 : Date.parse(door.lastChangedAt)
+  const isOpen = door?.state === 'open'
+
+  const events: DoorEvent[] = []
+
+  if (isOpen) {
+    events.push({ state: 'open', changedAt: new Date(lastChanged).toISOString(), openedAt: null })
+    events.push({
+      state: 'closed',
+      changedAt: new Date(lastChanged - 8 * 60_000).toISOString(),
+      openedAt: new Date(lastChanged - 21 * 60_000).toISOString(),
+    })
+    events.push({
+      state: 'open',
+      changedAt: new Date(lastChanged - 21 * 60_000).toISOString(),
+      openedAt: null,
+    })
+  } else {
+    events.push({
+      state: 'closed',
+      changedAt: new Date(lastChanged).toISOString(),
+      openedAt: new Date(lastChanged - 7 * 60_000).toISOString(),
+    })
+    events.push({
+      state: 'open',
+      changedAt: new Date(lastChanged - 7 * 60_000).toISOString(),
+      openedAt: null,
+    })
+  }
+
+  return { deviceId, events }
 }

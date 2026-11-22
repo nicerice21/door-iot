@@ -205,11 +205,98 @@
 .door-card-footer {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 6px 14px;
   padding-top: 12px;
   border-top: 1px solid #e4eaf1;
   color: #7b8794;
   font-size: 0.78rem;
+}
+
+.history-toggle {
+  margin-left: auto;
+  padding: 3px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  background: #f8fafc;
+  color: #334e68;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.history-toggle:hover {
+  background: #e8eef5;
+}
+
+.history-toggle:focus-visible {
+  outline: 2px solid #4c6ef5;
+  outline-offset: 2px;
+}
+
+.door-history {
+  padding-top: 12px;
+  border-top: 1px solid #e4eaf1;
+}
+
+.door-history h3 {
+  margin-bottom: 8px;
+  color: #52606d;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.history-status {
+  color: #7b8794;
+  font-size: 0.8rem;
+}
+
+.history-error {
+  color: #b42318;
+}
+
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  list-style: none;
+}
+
+.history-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #52606d;
+  font-size: 0.8rem;
+}
+
+.history-badge {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  color: #ffffff;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.history-badge.state-open {
+  background: #e8590c;
+}
+
+.history-badge.state-closed {
+  background: #2f9e44;
+}
+
+.history-time {
+  font-variant-numeric: tabular-nums;
+}
+
+.history-duration {
+  margin-left: auto;
+  color: #7b8794;
 }
 
 .app-footer {
