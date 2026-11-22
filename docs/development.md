@@ -36,7 +36,10 @@ npm run lint
 | `src/DoorMonitor.Gateway` | シリアル受信、クラウド送信、タスクトレイ UI |
 | `src/DoorMonitor.Functions` | HTTP API、Table Storage / メモリリポジトリ |
 | `web` | 状態カード表示、ポーリング、毎秒の経過時間更新 |
+| `infra` | Azure リソース定義（Bicep） |
 | `tests/DoorMonitor.Core.Tests` | Core の単体テスト |
+
+Azure へのデプロイ手順は [deployment.md](deployment.md) を参照してください。
 
 ### データの流れ
 
@@ -193,6 +196,7 @@ dotnet publish src\DoorMonitor.Gateway -p:PublishProfile=win-x64
 | :--- | :--- | :--- |
 | `.NET build & test` | `windows-latest` | `dotnet restore` → `dotnet build DoorMonitor.sln` → Core のテスト |
 | `Web test & build` | `ubuntu-latest` | `npm ci` → `npm test` → `npm run build` → `npm run lint` |
+| `Bicep build` | `ubuntu-latest` | `az bicep build --file infra/main.bicep` |
 | `Gateway publish (win-x64)` | `windows-latest` | `main` への push 時のみ単一 exe を publish |
 
 - `pull_request` と `main` への push で実行されます（`main` 以外への push では実行されません）。
@@ -208,4 +212,6 @@ dotnet publish src\DoorMonitor.Gateway -p:PublishProfile=win-x64
 - `DoorEvents` テーブルは自動削除されません。件数が問題になった時点で、Timer Trigger などによる古い行の削除を追加してください。
 - `InMemory` モードは Functions のプロセス再起動で状態が消えます。履歴も子機ごとに直近 500 件だけ保持します。
 - フロアマップ表示、Timer Trigger によるバックグラウンド死活判定は未実装です。
+- Azure のリソース定義（`infra/main.bicep`）はありますが、実際の Azure へのデプロイとコード配置はまだ行っていません。
+- Linux の Consumption プランは 2028-09-30 に提供終了予定です。長期運用する場合は Flex Consumption への移行を検討してください（技術選定の変更になるため、要件定義 8.1 も合わせて更新が必要です）。
 - 実機（TWELITE + MONOSTICK）での通し試験はまだ行っていません。
