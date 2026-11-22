@@ -65,7 +65,7 @@ az policy assignment show --name "<割り当て名>" --scope "/subscriptions/$su
 - `location` は Functions / Storage / Log Analytics / Application Insights を作る場所です。許可されたリージョンから選びます。
 - `staticWebAppLocation` は Static Web Apps の場所です。Free プランは `centralus` / `eastus2` / `eastasia` / `westeurope` / `westus2` のみ対応するため、**許可リージョンと Free 対応リージョンの両方に含まれる場所**を選びます。
 - リソースグループの場所とリソースの場所は一致している必要はありません。リソースグループはそのままで、`location` だけ変えて再デプロイできます。
-- このリポジトリでは、学生サブスクリプションの許可リージョンだった `eastasia` で作成を確認しています（2026-11-23）。
+- このリポジトリでは、学生サブスクリプションの許可リージョンだった `eastasia` でリソース作成から実機での通し確認まで完了しています（2026-11-23）。
 
 ### 3.2 リソースグループと API キーを用意する
 
@@ -216,12 +216,11 @@ az group delete --name rg-door-iot --yes --no-wait
 
 現時点では次を手動で行います。必要になった段階で追加します。
 
-- Functions / Static Web Apps のコード配置（CD）
+- コード配置の自動化（CD）。現状は `func azure functionapp publish` と Static Web Apps CLI による手動配置
 - Static Web Apps のデプロイトークンの GitHub シークレット登録
 - カスタムドメイン、Key Vault とマネージド ID による API キー管理
 - `DoorEvents` の古い行の削除（Timer Trigger）
 - Linux Consumption プランから Flex Consumption への移行（Linux Consumption は 2028-09-30 に提供終了予定）
-- 実機（TWELITE + MONOSTICK）での通し試験
 
 ## 9. テンプレートの検証
 
