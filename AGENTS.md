@@ -2,8 +2,8 @@
 
 ## このリポジトリの現状
 
-- 要件定義に加えて、実装雛形（Core / Gateway / Functions / Web / Tests）と Azure リソース定義（`infra/main.bicep`）が存在する。CI は GitHub Actions（`.github/workflows/ci.yml`）で .NET・Web・Bicep を検証する。
-- 構成: `README.md` / `LICENSE` (Apache-2.0) / `AGENTS.md` / `docs/requirements.md` / `docs/development.md` / `docs/deployment.md` / `infra/` / `src/` / `tests/` / `web/`
+- 要件定義に加えて、実装雛形（Core / Gateway / Functions / Web / Tests）と Azure リソース定義（`infra/main.bicep`）が存在する。CI は GitHub Actions（`.github/workflows/ci.yml`）で .NET・Web・Bicep・デプロイスクリプトの構文を検証する。
+- 構成: `README.md` / `LICENSE` (Apache-2.0) / `AGENTS.md` / `docs/requirements.md` / `docs/development.md` / `docs/deployment.md` / `infra/` / `scripts/` / `src/` / `tests/` / `web/`
 - ビルドやテストのコマンドを推測して書かない。以下は動作確認済み（2026-11-22）。
   - `dotnet build DoorMonitor.sln`
   - `dotnet test tests\DoorMonitor.Core.Tests\DoorMonitor.Core.Tests.csproj`
@@ -12,6 +12,7 @@
   - `azurite --location .azurite` と `func start --project src\DoorMonitor.Functions`（Table モードで API 通し確認済み）
   - `bicep build infra\main.bicep`（Bicep CLI 0.49.2。CI では `az bicep build`）
 - Azure へのデプロイ（`eastasia`）と実機（TWELITE + MONOSTICK）での通し確認は 2026-11-23 に完了し、1台構成のプロトタイプは完成。残りはオフライン表示の実機確認、デプロイの自動化（CD）、Timer Trigger によるクリーンアップとバックグラウンド死活判定（いずれも運用上の改善）。複数台運用とフロアマップ表示はプロトタイプの対象外。
+- デプロイは `scripts/deploy.ps1` でまとめて実行できる。CI/CD（GitHub Actions からの自動デプロイ）は未実装。
 - ブランチは `main`、リモートは `nicerice21/door-iot`。運用ルールは未定義なので勝手に決めない。
 
 ## 設計の正本

@@ -127,6 +127,49 @@ $staticWebApp = $out.staticWebAppName.value
 
 `apiKey` はゲートウェイの設定で使うため、安全な場所に控えてください。紛失した場合は同じ値で再デプロイするか、新しい値を生成して再デプロイします（ゲートウェイ側も更新が必要です）。
 
+### 3.4 スクリプトでまとめてデプロイする
+
+`scripts/deploy.ps1` は、リソースグループの確認、Bicep の検証とデプロイ、Web と Functions の配置、API の確認をまとめて実行します。個別の手順を確認したい場合は 3.2〜3.3 と 4 章以降をそのまま使えます。
+
+初回は API キーを指定します。
+
+```powershell
+$bytes = New-Object byte[] 32
+[Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
+$apiKey = -join ($bytes | ForEach-Object { $_.ToString('x2') })
+
+pwsh .\scripts\deploy.ps1 -ApiKey $apiKey
+```
+
+2 回目以降は、Functions のアプリ設定から `ApiKey` を読み取って再利用します。
+
+```powershell
+pwsh .\scripts\deploy.ps1
+```
+
+コードだけを更新する場合:
+
+```powershell
+pwsh .\scripts\deploy.ps1 -Target Code
+```
+
+| パラメータ | 既定値 | 内容 |
+| :--- | :--- | :--- |
+| `-ResourceGroup` | `rg-door-iot` | リソースグループ名 |
+| `-ResourceGroupLocation` | `japaneast` | リソースグループを作成する場所（既存なら変更されない） |
+| `-Target` | `All` | `All` / `Infrastructure` / `Code` / `Web` / `Functions` / `Verify` |
+| `-EnvironmentName` | `dev` | リソース名の識別子（8 文字以内） |
+| `-Location` | `eastasia` | Functions・Storage などの場所（許可リージョン） |
+| `-StaticWebAppLocation` | `eastasia` | Static Web Apps の場所 |
+| `-ApiKey` | なし | 初回のみ指定。2 回目以降は既存値を再利用 |
+| `-SubscriptionId` | なし | 使用するサブスクリプション。省略時は az の現在値 |
+| `-FunctionAppName` / `-StaticWebAppName` | 自動 | 名前を自動で特定できない場合に指定 |
+
+- `All` と `Code` は **Web → Functions** の順で配置します。現在のバージョンは API から `meta` を削除しているため、古い Web が新しい Functions を参照しないようにするためです。
+- API キーは画面に表示せず、リポジトリにも保存しません。
+- このスクリプトはローカル実行用です。GitHub Actions からの自動デプロイ（CD）はまだ実装していません。
+- 実行ポリシーで拒否される場合は `pwsh -ExecutionPolicy Bypass -File .\scripts\deploy.ps1 ...` を使ってください。
+
 ## 4. Functions のコードを配置する
 
 `func azure functionapp publish` はビルド済みの成果物を zip で送ります。
@@ -218,7 +261,7 @@ az group delete --name rg-door-iot --yes --no-wait
 
 現時点では次を手動で行います。必要になった段階で追加します。
 
-- コード配置の自動化（CD）。現状は `func azure functionapp publish` と Static Web Apps CLI による手動配置
+- コード配置の自動化（CD）。ローカルでは `scripts/deploy.ps1` で実行できるが、GitHub Actions からの自動デプロイは未実装
 - Static Web Apps のデプロイトークンの GitHub シークレット登録
 - カスタムドメイン、Key Vault とマネージド ID による API キー管理
 - `DoorEvents` の古い行の削除（Timer Trigger）
