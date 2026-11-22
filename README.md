@@ -1,5 +1,7 @@
 # door-iot
 
+[![CI](https://github.com/nicerice21/door-iot/actions/workflows/ci.yml/badge.svg)](https://github.com/nicerice21/door-iot/actions/workflows/ci.yml)
+
 EngineeringDesign入門のプロトタイプ。TWELITE とリードスイッチでドアの開閉を検知し、Windows PC の常駐ゲートウェイから Azure Functions へ送信、Web ブラウザで状態と「開いてからの経過時間」を確認するシステムです。
 
 設計の正本は [docs/requirements.md](docs/requirements.md) です。実装の詳細と運用手順は [docs/development.md](docs/development.md) を参照してください。
@@ -8,6 +10,9 @@ EngineeringDesign入門のプロトタイプ。TWELITE とリードスイッチ�
 
 ```text
 door-iot/
+├─ .github/
+│  └─ workflows/
+│     └─ ci.yml                # GitHub Actions（ビルド・テスト）
 ├─ docs/
 │  ├─ requirements.md          # 要件定義（設計の正本）
 │  └─ development.md           # 開発・実行手順
@@ -74,6 +79,16 @@ dotnet publish src\DoorMonitor.Gateway -p:PublishProfile=win-x64
 ```
 
 COM ポートや API URL はトレイアイコンの「設定...」から変更できます。設定は `%LOCALAPPDATA%\DoorMonitor\gateway.settings.json` に保存されます。
+
+## CI
+
+GitHub Actions（`.github/workflows/ci.yml`）で次を実行します。
+
+- `.NET`: `dotnet build DoorMonitor.sln` と Core のテスト（`windows-latest`）
+- Web: `npm ci` / `npm test` / `npm run build` / `npm run lint`（`ubuntu-latest`）
+- ゲートウェイの単一 exe の publish（`main` への push 時のみ、`windows-latest`）
+
+PR では .NET と Web のジョブ結果を確認できます。
 
 ## 現在の実装範囲
 

@@ -29,6 +29,9 @@ dist-ssr/
 .env.*
 !.env.example
 
+# Editor
+.vscode/
+
 # OS
 Thumbs.db
 Desktop.ini

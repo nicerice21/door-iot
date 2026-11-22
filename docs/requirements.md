@@ -238,6 +238,7 @@
 
 ```text
 door-iot/
+├─ .github/workflows/ci.yml    # GitHub Actions（ビルド・テスト）
 ├─ docs/
 │  ├─ requirements.md          # 本ドキュメント（設計の正本）
 │  └─ development.md           # 開発・実行手順
@@ -266,7 +267,11 @@ door-iot/
 - `InMemory`: プロセス内の辞書に保持する。再起動で消えるため、画面確認・API 結合試験用。
 - `Table`: Azure Table Storage の `Devices` / `Gateways` テーブルに保持する。
 
-### 8.6 実装状況（2026-11-21 時点）
+### 8.6 CI
+
+GitHub Actions（`.github/workflows/ci.yml`）で .NET のビルド・テストと Web のテスト・ビルド・lint を継続的に確認する。ゲートウェイの単一 exe の publish は `main` への push 時のみ実行し、PR の待ち時間を抑える。
+
+### 8.7 実装状況（2026-11-22 時点）
 
 - 実装済み: `App_Twelite` 0x81 電文パース（LRC8 検証・DI1 の開閉変換）、デバウンス、開閉状態の遷移、API 3 本、Table / InMemory リポジトリ、ポーリング Web 画面、トレイアプリの骨格。
 - 未実装: 実機での通し試験、History テーブル、フロアマップ表示、送信失敗時の再送キュー、Azure へのデプロイ設定（IaC）。

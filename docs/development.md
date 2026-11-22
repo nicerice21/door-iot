@@ -146,7 +146,21 @@ dotnet publish src\DoorMonitor.Gateway -p:PublishProfile=win-x64
 
 出力: `publish\gateway\DoorMonitor.Gateway.exe`（self-contained / single file）。`publish/` は Git 管理対象外です。
 
-## 7. 既知の制約
+## 7. CI（GitHub Actions）
+
+`.github/workflows/ci.yml` が次のジョブを実行します。
+
+| ジョブ | ランナー | 内容 |
+| :--- | :--- | :--- |
+| `.NET build & test` | `windows-latest` | `dotnet restore` → `dotnet build DoorMonitor.sln` → Core のテスト |
+| `Web test & build` | `ubuntu-latest` | `npm ci` → `npm test` → `npm run build` → `npm run lint` |
+| `Gateway publish (win-x64)` | `windows-latest` | `main` への push 時のみ単一 exe を publish |
+
+- `pull_request` と `main` への push で実行されます（`main` 以外への push では実行されません）。
+- ゲートウェイは WinForms のため、.NET のジョブは Windows ランナー固定です。
+- ローカルで同じ確認をする場合は、[2 章](#2-ビルドとテスト)のコマンドを実行してください。
+
+## 8. 既知の制約
 
 - テレメトリ送信に失敗した場合、その電文は破棄されます（再送キューは未実装）。
 - `InMemory` モードは Functions のプロセス再起動で状態が消えます。
