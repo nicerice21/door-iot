@@ -4,14 +4,16 @@ using DoorMonitor.Core.Doors;
 
 namespace DoorMonitor.Functions.Storage;
 
-/// <summary>Azure Table Storage 実装。Devices / Gateways の2テーブルを使う。</summary>
+/// <summary>Azure Table Storage 実装。Devices / Gateways / DoorEvents の3テーブルを使う。</summary>
 public sealed class TableDoorRepository : IDoorRepository
 {
     private const string DevicesTable = "Devices";
     private const string GatewaysTable = "Gateways";
+    private const string DoorEventsTable = "DoorEvents";
 
     private readonly TableClient _devices;
     private readonly TableClient _gateways;
+    private readonly TableClient _doorEvents;
     private readonly SemaphoreSlim _initGate = new(1, 1);
     private volatile bool _initialized;
 
@@ -20,6 +22,7 @@ public sealed class TableDoorRepository : IDoorRepository
         var service = new TableServiceClient(connectionString);
         _devices = service.GetTableClient(DevicesTable);
         _gateways = service.GetTableClient(GatewaysTable);
+        _doorEvents = service.GetTableClient(DoorEventsTable);
     }
 
     public async Task<IReadOnlyList<DoorSnapshot>> GetDoorsAsync(CancellationToken cancellationToken)
@@ -62,6 +65,37 @@ public sealed class TableDoorRepository : IDoorRepository
         await _devices
             .UpsertEntityAsync(DoorEntityMapper.ToEntity(snapshot), TableUpdateMode.Replace, cancellationToken)
             .ConfigureAwait(false);
+    }
+
+    public async Task UpsertDoorEventAsync(DoorEvent doorEvent, CancellationToken cancellationToken)
+    {
+        await EnsureTablesAsync(cancellationToken).ConfigureAwait(false);
+        await _doorEvents
+            .UpsertEntityAsync(DoorEventMapper.ToEntity(doorEvent), TableUpdateMode.Replace, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    public async Task<IReadOnlyList<DoorEvent>> GetDoorEventsAsync(string deviceId, int limit, CancellationToken cancellationToken)
+    {
+        await EnsureTablesAsync(cancellationToken).ConfigureAwait(false);
+
+        var events = new List<DoorEvent>(limit);
+        var query = _doorEvents.QueryAsync<DoorEventEntity>(
+            entity => entity.PartitionKey == deviceId,
+            maxPerPage: limit,
+            cancellationToken: cancellationToken);
+
+        // RowKey が時刻の反転値なので、昇順に読むだけで新しい順になる。
+        await foreach (var entity in query.ConfigureAwait(false))
+        {
+            events.Add(DoorEventMapper.ToEvent(entity));
+            if (events.Count >= limit)
+            {
+                break;
+            }
+        }
+
+        return events;
     }
 
     public async Task<GatewayRecord?> GetGatewayAsync(string gatewayId, CancellationToken cancellationToken)
@@ -121,6 +155,7 @@ public sealed class TableDoorRepository : IDoorRepository
 
             await _devices.CreateIfNotExistsAsync(cancellationToken).ConfigureAwait(false);
             await _gateways.CreateIfNotExistsAsync(cancellationToken).ConfigureAwait(false);
+            await _doorEvents.CreateIfNotExistsAsync(cancellationToken).ConfigureAwait(false);
             _initialized = true;
         }
         finally
