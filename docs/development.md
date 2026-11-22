@@ -63,6 +63,21 @@ func start --project src\DoorMonitor.Functions
 
 `local.settings.json` は Git 管理対象外です。
 
+Table モード（Azurite）で確認する場合は、別ターミナルで Azurite を起動し、`local.settings.json` の `Storage__Mode` を `Table` に変更します。
+
+```powershell
+# ホストの AzureWebJobsStorage 健全性チェックも通すため、全サービスを起動する
+azurite --location .azurite
+func start --project src\DoorMonitor.Functions
+```
+
+2026-11-22 に Azure Functions Core Tools 4.17.0 / Azurite 3.38.0 で次を確認済みです。
+
+- Table モードで `GET /api/doors` が応答し、Functions を再起動しても状態と履歴が残る
+- `closed → open → open（ハートビート） → closed` の受信で履歴が 2 件（開・閉）になり、ハートビートは記録されない
+- `?limit=1` で件数を制限でき、存在しない子機は 404、同じ変化時刻の再送では履歴が重複しない
+- `ApiKey` 設定時、`X-Api-Key` なし／不正は 401、正しいキーは 202。`GET /api/doors` は認証なしで 200
+
 ### 4.2 API
 
 | メソッド | パス | 認証 | 用途 |
