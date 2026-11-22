@@ -102,8 +102,8 @@ PR では .NET・Web・Bicep のジョブ結果を確認できます。
 
 ## 現在の実装範囲
 
-- 実装済み: TWELITE `App_Twelite` 電文パーサ、開閉状態の遷移ロジック、Azure Functions の4 API、ポーリング Web 画面、開閉履歴の表示、C# トレイアプリ、送信失敗時の再送キュー、Azure リソース定義（Bicep）と `eastasia` でのリソース作成
-- 未実装: フロアマップ表示、Functions / Web のコード配置、実機での通し試験
+- 実装済み: TWELITE `App_Twelite` 電文パーサ、開閉状態の遷移ロジック、Azure Functions の4 API、ポーリング Web 画面、開閉履歴の表示、C# トレイアプリ、送信失敗時の再送キュー、Azure リソース定義（Bicep）、Azure へのデプロイ、実機（TWELITE + MONOSTICK）での通し確認
+- 未実装: フロアマップ表示、複数台（2〜10台）でのスケール確認、デプロイの自動化（CD）
 
 ## ライセンス
 

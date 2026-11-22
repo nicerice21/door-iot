@@ -331,8 +331,8 @@ GitHub Actions（`.github/workflows/ci.yml`）で .NET のビルド・テスト�
 
 ### 8.9 実装状況（2026-11-23 時点）
 
-- 実装済み: `App_Twelite` 0x81 電文パース（LRC8 検証・DI1 の開閉変換）、デバウンス、開閉状態の遷移、API 4 本、Table / InMemory リポジトリ、ポーリング Web 画面、トレイアプリの骨格、テレメトリの再送キュー、開閉履歴、Bicep による Azure リソース定義（2026-11-23 に `eastasia` でリソース作成を確認）。
-- 未実装: 実機での通し試験、フロアマップ表示、Functions と Web のコード配置と CD。
+- 実装済み: `App_Twelite` 0x81 電文パース（LRC8 検証・DI1 の開閉変換）、デバウンス、開閉状態の遷移、API 4 本、Table / InMemory リポジトリ、ポーリング Web 画面、トレイアプリの骨格、テレメトリの再送キュー、開閉履歴、Bicep による Azure リソース定義、Azure へのデプロイ、実機（TWELITE + MONOSTICK）での通し確認（2026-11-23）。
+- 未実装: フロアマップ表示、複数台（2〜10台）でのスケール確認、オフライン表示（電池抜き・PC停止）の実機確認、デプロイの自動化（CD）、Timer Trigger による `DoorEvents` の削除とバックグラウンド死活判定。
 
 ### 8.10 Azure へのデプロイ（IaC）
 
@@ -345,3 +345,4 @@ GitHub Actions（`.github/workflows/ci.yml`）で .NET のビルド・テスト�
 - **シークレット**: API キーは `@secure()` パラメータで受け取り、リポジトリへ保存しない。Bicep 側で 16 文字以上を検証し、空のキーで本番環境が公開されることを防ぐ。
 - **責務の分離**: Bicep はリソースの作成だけを担当する。コード配置（`func azure functionapp publish`、Static Web Apps のデプロイトークン）は手動または別ワークフローで行う。
 - **検証**: CI で `az bicep build` を実行し、テンプレートの構文を確認する。実際のデプロイは Azure サブスクリプションが必要なため CI では行わない。
+- **実績**: 2026-11-23 に `eastasia` でリソースを作成し、Azure へのデプロイと実機での通し確認まで完了した。

@@ -11,7 +11,7 @@
   - `dotnet publish src\DoorMonitor.Gateway -p:PublishProfile=win-x64`
   - `azurite --location .azurite` と `func start --project src\DoorMonitor.Functions`（Table モードで API 通し確認済み）
   - `bicep build infra\main.bicep`（Bicep CLI 0.49.2。CI では `az bicep build`）
-- Azure リソースの作成（Bicep）は 2026-11-23 に `eastasia` で確認済み（学生サブスクリプションの許可リージョン）。Functions と Web のコード配置、実機（TWELITE + MONOSTICK）での通し試験、マップ表示は未実装。
+- Azure へのデプロイ（`eastasia`）と実機（TWELITE + MONOSTICK）での通し確認は 2026-11-23 に完了。残りはフロアマップ表示、複数台（2〜10台）でのスケール確認、オフライン表示の実機確認、デプロイの自動化（CD）、Timer Trigger によるクリーンアップとバックグラウンド死活判定。
 - ブランチは `main`、リモートは `nicerice21/door-iot`。運用ルールは未定義なので勝手に決めない。
 
 ## 設計の正本

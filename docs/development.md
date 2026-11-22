@@ -211,8 +211,8 @@ dotnet publish src\DoorMonitor.Gateway -p:PublishProfile=win-x64
 - 履歴は開閉が変化した受信だけを記録します。初回受信や定期ハートビートは残りません。
 - `DoorEvents` テーブルは自動削除されません。件数が問題になった時点で、Timer Trigger などによる古い行の削除を追加してください。
 - `InMemory` モードは Functions のプロセス再起動で状態が消えます。履歴も子機ごとに直近 500 件だけ保持します。
-- フロアマップ表示、Timer Trigger によるバックグラウンド死活判定は未実装です。
-- Azure リソースの作成は `infra/main.bicep` で行い、2026-11-23 に `eastasia` で確認済みです。Functions と Web のコード配置はまだ行っていません。
+- フロアマップ表示、複数台（2〜10台）でのスケール確認、Timer Trigger によるバックグラウンド死活判定は未実装です。
+- Azure へのデプロイは 2026-11-23 に `eastasia` で完了しています（リソース作成、Functions / Web のコード配置、実機での通し確認）。
 - 学生サブスクリプションには「許可された場所」のポリシーがあり、`location` に許可リージョンを指定する必要があります（[deployment.md](deployment.md) 3.1）。
 - Linux の Consumption プランは 2028-09-30 に提供終了予定です。長期運用する場合は Flex Consumption への移行を検討してください（技術選定の変更になるため、要件定義 8.1 も合わせて更新が必要です）。
-- 実機（TWELITE + MONOSTICK）での通し試験はまだ行っていません。
+- オフライン表示（電池抜き・PC停止）の実機確認と、`DoorEvents` の自動削除は未実施です。
