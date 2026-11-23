@@ -87,6 +87,7 @@
 
 - **技術スタック**: C# (.NET 8 / 9), Windows Forms / WPF (タスクトレイ常駐 `NotifyIcon`), `System.IO.Ports.SerialPort`
 - **配布形態**: ランタイム同梱（Self-contained）の単一 `.exe` または ZIP配布
+- **リリース配布**: `v*` タグの push で GitHub Actions が単一 exe をビルドし、GitHub Release に ZIP（exe + README + LICENSE）と SHA256 チェックサムを添付する。
 - **主な機能**:
   1. **タスクトレイ常駐**: ウィンドウを閉じてもバックグラウンドで動作し、トレイアイコンの色やツールチップで動作状態（正常/シリアル未接続/API通信エラー）を表示する。
   2. **シリアル通信 (MONOSTICK受信)**:
@@ -315,7 +316,7 @@ GitHub Actions（`.github/workflows/ci.yml`）で .NET のビルド・テスト�
 
 ### 8.9 実装状況（2026-11-23 時点）
 
-- 実装済み: `App_Twelite` 0x81 電文パース（LRC8 検証・DI1 の開閉変換）、デバウンス、開閉状態の遷移、API 4 本、Table / InMemory リポジトリ、ポーリング Web 画面、トレイアプリの骨格、テレメトリの再送キュー、開閉履歴、Bicep による Azure リソース定義、Azure へのデプロイ、実機（TWELITE + MONOSTICK）での通し確認（2026-11-23）。
+- 実装済み: `App_Twelite` 0x81 電文パース（LRC8 検証・DI1 の開閉変換）、デバウンス、開閉状態の遷移、API 4 本、Table / InMemory リポジトリ、ポーリング Web 画面、トレイアプリの骨格、テレメトリの再送キュー、開閉履歴、Bicep による Azure リソース定義、Azure へのデプロイ、実機（TWELITE + MONOSTICK）での通し確認、GitHub Release 用のリリースワークフロー（2026-11-23）。
 - 1台構成のプロトタイプは完成とする（2026-11-23）。残課題はプロトタイプの必須機能ではなく、運用上の改善として扱う。
 - プロトタイプの対象外: 複数台運用、フロアマップ表示、表示メタデータ（部屋名・地図座標・警告閾値）の管理 API/UI。
 - 残課題: オフライン表示（電池抜き・PC停止）の実機確認、デプロイの自動化（CD）、Timer Trigger による `DoorEvents` の削除とバックグラウンド死活判定。

@@ -12,7 +12,8 @@ EngineeringDesign入門のプロトタイプ。TWELITE 1台とリードスイッ
 door-iot/
 ├─ .github/
 │  └─ workflows/
-│     └─ ci.yml                # GitHub Actions（ビルド・テスト・Bicep 検証）
+│     ├─ ci.yml                # GitHub Actions（ビルド・テスト・Bicep 検証）
+│     └─ release.yml           # タグ push でゲートウェイを GitHub Release に添付
 ├─ docs/
 │  ├─ requirements.md          # 要件定義（設計の正本）
 │  ├─ development.md           # 開発・実行手順
@@ -87,7 +88,20 @@ COM ポートや API URL はトレイアイコンの「設定...」から変更�
 
 送信に失敗したテレメトリは `%LOCALAPPDATA%\DoorMonitor\queue` に保存され、API の復旧後に受信順で再送されます。
 
-## CI
+### GitHub Release への配布
+
+`v1.0.0` のようなタグを push すると、`.github/workflows/release.yml` がゲートウェイをビルドし、GitHub Release に ZIP と SHA256 チェックサムを添付します。
+
+```powershell
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+- タグは `vX.Y.Z` 形式を推奨します。バージョンは exe のファイルバージョンにも反映されます。
+- ZIP には `DoorMonitor.Gateway.exe`、`README.txt`、`LICENSE` が入ります。
+- exe は署名していないため、初回起動時に SmartScreen の警告が表示される場合があります。
+
+## CI とリリース
 
 GitHub Actions（`.github/workflows/ci.yml`）で次を実行します。
 
@@ -97,6 +111,8 @@ GitHub Actions（`.github/workflows/ci.yml`）で次を実行します。
 - ゲートウェイの単一 exe の publish（`main` への push 時のみ、`windows-latest`）
 
 PR では .NET・Web・Bicep のジョブ結果を確認できます。
+
+タグ `v*` を push すると、`release.yml` がゲートウェイの単一 exe をビルドして GitHub Release を作成します。
 
 ## Azure へのデプロイ
 
@@ -114,7 +130,7 @@ pwsh .\scripts\deploy.ps1 -Target Code
 
 ## 現在の実装範囲
 
-- 実装済み: TWELITE `App_Twelite` 電文パーサ、開閉状態の遷移ロジック、Azure Functions の4 API、ポーリング Web 画面、開閉履歴の表示、C# トレイアプリ、送信失敗時の再送キュー、Azure リソース定義（Bicep）、Azure へのデプロイ、実機（TWELITE + MONOSTICK）での通し確認
+- 実装済み: TWELITE `App_Twelite` 電文パーサ、開閉状態の遷移ロジック、Azure Functions の4 API、ポーリング Web 画面、開閉履歴の表示、C# トレイアプリ、送信失敗時の再送キュー、Azure リソース定義（Bicep）、Azure へのデプロイ、実機（TWELITE + MONOSTICK）での通し確認、GitHub Release 用のリリースワークフロー（タグ push）
 - 1台構成のプロトタイプは完成（2026-11-23）
 - プロトタイプの対象外: 複数台運用、フロアマップ表示
 - 残課題（運用上の改善）: オフライン表示（電池抜き・PC停止）の実機確認、デプロイの自動化（CD）

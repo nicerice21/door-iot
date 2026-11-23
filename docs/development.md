@@ -189,7 +189,24 @@ dotnet publish src\DoorMonitor.Gateway -p:PublishProfile=win-x64
 
 出力: `publish\gateway\DoorMonitor.Gateway.exe`（self-contained / single file）。`publish/` は Git 管理対象外です。
 
-## 7. CI（GitHub Actions）
+### GitHub Release の作成
+
+`v1.0.0` のようなタグを push すると、`.github/workflows/release.yml` が次を実行します。
+
+1. Core のテスト（Release 構成）
+2. ゲートウェイの単一 exe を publish
+3. exe・`README.txt`・`LICENSE` を ZIP にまとめる
+4. SHA256 チェックサムを作成
+5. GitHub Release に ZIP とチェックサムを添付
+
+```powershell
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+タグは `vX.Y.Z` 形式を推奨します。形式に合う場合は exe のファイルバージョンにも反映されます。タグに `-` を含めるとプレリリースとして作成されます。既存の Release に同じタグで再実行した場合は、資産を上書きします。
+
+## 7. CI とリリース（GitHub Actions）
 
 `.github/workflows/ci.yml` が次のジョブを実行します。
 
@@ -203,6 +220,7 @@ dotnet publish src\DoorMonitor.Gateway -p:PublishProfile=win-x64
 - `pull_request` と `main` への push で実行されます（`main` 以外への push では実行されません）。
 - ゲートウェイは WinForms のため、.NET のジョブは Windows ランナー固定です。
 - ローカルで同じ確認をする場合は、[2 章](#2-ビルドとテスト)のコマンドを実行してください。
+- タグ `v*` を push すると `release.yml` が実行され、GitHub Release にゲートウェイの ZIP と SHA256 を添付します。`release.yml` はタグ push だけをトリガーにします。
 
 ## 8. 既知の制約
 

@@ -13,6 +13,7 @@
   - `bicep build infra\main.bicep`（Bicep CLI 0.49.2。CI では `az bicep build`）
 - Azure へのデプロイ（`eastasia`）と実機（TWELITE + MONOSTICK）での通し確認は 2026-11-23 に完了し、1台構成のプロトタイプは完成。残りはオフライン表示の実機確認、デプロイの自動化（CD）、Timer Trigger によるクリーンアップとバックグラウンド死活判定（いずれも運用上の改善）。複数台運用とフロアマップ表示はプロトタイプの対象外。
 - デプロイは `scripts/deploy.ps1` でまとめて実行できる。CI/CD（GitHub Actions からの自動デプロイ）は未実装。
+- ゲートウェイは `v*` タグの push で `.github/workflows/release.yml` が GitHub Release に ZIP と SHA256 を添付する。
 - ブランチは `main`、リモートは `nicerice21/door-iot`。運用ルールは未定義なので勝手に決めない。
 
 ## 設計の正本
