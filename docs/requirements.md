@@ -17,7 +17,8 @@
    │ ※状態変化時 + 定期ハートビート送信
    ▼
 [親機・ゲートウェイ]
-  MONOSTICK-R (USB接続) ──> [Windows PC 常駐ソフト (C# / .NET タスクトレイアプリ)]
+  MONOSTICK-R (USB接続) ──> [常駐ソフト (C# / .NET)]
+                             Windows: タスクトレイアプリ / Ubuntu: ヘッドレス
                              │
                              │ HTTPS (REST API / JSON)
                              ▼
@@ -48,8 +49,9 @@
    - プロトタイプ: 1台
    - 電源: 電池駆動（単3電池×2本 または コイン電池を想定）
 4. **PCゲートウェイ環境**:
-   - OS: Windows 10 / 11
-   - スクリプト実行環境の構築を不要とし、単一バイナリまたはインストーラ形式で配布可能な**タスクトレイ常駐アプリケーション（C# / .NET）**とする。
+   - OS: Windows 10 / 11、Ubuntu 22.04 以降 (x64)
+   - スクリプト実行環境の構築を不要とし、単一バイナリで配布可能な**常駐アプリケーション（C# / .NET 8）**とする。
+   - Windows では**タスクトレイ常駐アプリ（WinForms）**、Ubuntu では**ヘッドレスの常駐プロセス（systemd）**として動作する。シリアル受信・再送キュー・API 送信の処理は共通で、ホスト（画面の有無）だけを分ける。
 5. **対象外**:
    - 複数台運用、フロアマップ表示、表示メタデータ（部屋名・地図座標・警告閾値）の管理 API/UI は、プロトタイプの対象外とする。
 
@@ -83,22 +85,28 @@
 
 ## 4. 機能要件
 
-### 4.1 PCゲートウェイ（Windows常駐ソフト）
+### 4.1 PCゲートウェイ（常駐ソフト）
 
-- **技術スタック**: C# (.NET 8 / 9), Windows Forms / WPF (タスクトレイ常駐 `NotifyIcon`), `System.IO.Ports.SerialPort`
-- **配布形態**: ランタイム同梱（Self-contained）の単一 `.exe` または ZIP配布
-- **リリース配布**: `v*` タグの push で GitHub Actions が単一 exe をビルドし、GitHub Release に ZIP（exe + README + LICENSE）と SHA256 チェックサムを添付する。
+- **技術スタック**: C# (.NET 8), `System.IO.Ports.SerialPort`。シリアル受信・再送キュー・API 送信・設定の読み書きは `DoorMonitor.Gateway.Core` に置き、次の 2 つのホストから共有する。
+  - Windows: Windows Forms（`NotifyIcon` によるタスクトレイ常駐）
+  - Ubuntu: コンソールアプリ（ヘッドレス、systemd で常駐）
+- **配布形態**: ランタイム同梱（Self-contained）の単一実行ファイルを ZIP で配布する（Windows は `win-x64`、Ubuntu は `linux-x64`）。
+- **リリース配布**: `v*` タグの push で GitHub Actions が両方の実行ファイルをビルドし、GitHub Release に ZIP（実行ファイル + README + LICENSE）と SHA256 チェックサムを添付する。
 - **主な機能**:
-  1. **タスクトレイ常駐**: ウィンドウを閉じてもバックグラウンドで動作し、トレイアイコンの色やツールチップで動作状態（正常/シリアル未接続/API通信エラー）を表示する。
+  1. **常駐と状態表示**:
+     - Windows: タスクトレイ常駐。トレイアイコンの色やツールチップで動作状態（正常/シリアル未接続/API通信エラー）を表示する。
+     - Ubuntu: バックグラウンドで常駐し、状態の変化と通信ログを標準出力（systemd の journal）へ出力する。
   2. **シリアル通信 (MONOSTICK受信)**:
-     - 指定されたCOMポート（ボーレート 115200bps）を監視し、TWELITEからのASCIIフォーマット電文を受信・パースする。
+     - 指定されたシリアルポート（Windows: `COM3` など、Ubuntu: `/dev/ttyUSB0` など。ボーレート 115200bps）を監視し、TWELITEからのASCIIフォーマット電文を受信・パースする。
      - USB抜き差しや一時的な切断時に自動再接続を試みる。
+     - Ubuntu では `/dev/ttyUSB0` などのデバイスへアクセスするため、実行ユーザーを `dialout` グループへ追加する。
   3. **クラウド送信 (HTTPS)**:
      - 子機の「開閉状態変化」または「一定時間経過後のハートビート」を検知した際、Azure Functions API へ HTTPS POST で送信する（チャタリング防止のデバウンス処理を含む）。
      - 送信に失敗したテレメトリはローカルへ永続化し、API 復旧後に受信順で再送する（詳細は 8.7）。
      - 子機からの通信がない時間帯でも、PCゲートウェイ自身の生存を知らせるハートビートを定期送信（例：1〜5分おき）する。
   4. **設定画面・ログ確認**:
-     - トレイアイコンの右クリックメニューから、COMポート選択、APIエンドポイントURL、APIキーの設定変更、および直近の通信ログ確認ができる小画面を表示する。
+     - Windows: トレイアイコンの右クリックメニューから、COMポート選択、APIエンドポイントURL、APIキーの設定変更、および直近の通信ログ確認ができる小画面を表示する。
+     - Ubuntu: 設定ファイル（`~/.local/share/DoorMonitor/gateway.settings.json`）とコマンドライン引数で設定する。ログは journal に出力する。
 
 ### 4.2 クラウドバックエンド（Azure）
 
@@ -223,8 +231,8 @@
    - TWELITE DIP + リードスイッチ(NO)の配線と、MONOSTICK-Rでのシリアル出力確認。
 2. **Phase 2: クラウドAPI＆モックWeb画面構築**
    - Azure Functions + Table Storage の作成と、Static Web Apps での状態・経過時間表示（ダミーデータでの動作確認）。
-3. **Phase 3: PCゲートウェイ（C# タスクトレイアプリ）開発**
-   - シリアルデータのパース、チャタリング対策、Azure Functions への HTTPS POST 送信、単一 `.exe` ビルド。
+3. **Phase 3: PCゲートウェイ（C# 常駐アプリ）開発**
+   - シリアルデータのパース、チャタリング対策、Azure Functions への HTTPS POST 送信、単一バイナリ（Windows は `.exe`、Ubuntu は実行ファイル）ビルド。
 4. **Phase 4: エンドツーエンド結合＆死活監視テスト**
    - 実機1台での開閉テスト、電池抜き／PC停止時のオフライン表示確認。
 
@@ -238,7 +246,9 @@
 | :--- | :--- | :--- |
 | クラウドAPI | Azure Functions (C# / .NET 8 Isolated Worker) | ゲートウェイと同じ C# で統一 |
 | 共有ロジック | `DoorMonitor.Core` (net8.0) | 状態遷移・TWELITE 電文パースを Gateway / Functions / テストで共有 |
-| PCゲートウェイ | C# / .NET 8 / WinForms タスクトレイ | 単一 exe（self-contained）配布 |
+| ゲートウェイ共通 | `DoorMonitor.Gateway.Core` (net8.0) | シリアル受信・再送キュー・API 送信・設定を両ホストで共有 |
+| Windows ゲートウェイ | C# / .NET 8 / WinForms タスクトレイ | 単一 exe（self-contained）配布 |
+| Ubuntu ゲートウェイ | C# / .NET 8 / コンソール（ヘッドレス） | 単一実行ファイル（linux-x64 / self-contained）配布 |
 | Web | Vite + React + TypeScript | Azure Static Web Apps へ `dist/` を配置 |
 | テスト | xUnit（Core）/ Vitest（Web） | 状態遷移・パーサ・経過時間表示の純粋関数 |
 | ローカル開発 | InMemory リポジトリ（既定） | Azure 未接続で API と Web を結合確認できる |
@@ -266,10 +276,13 @@ door-iot/
 │  └─ main.bicep               # Azure リソース定義（IaC）
 ├─ src/
 │  ├─ DoorMonitor.Core/        # 共有モデル・状態遷移・TWELITE パーサ
-│  ├─ DoorMonitor.Gateway/     # C# WinForms タスクトレイ常駐アプリ
+│  ├─ DoorMonitor.Gateway.Core/ # ゲートウェイ共通処理（シリアル・再送キュー・API 送信・設定）
+│  ├─ DoorMonitor.Gateway/     # Windows 用 WinForms タスクトレイ常駐アプリ
+│  ├─ DoorMonitor.Gateway.Cli/ # Ubuntu 用ヘッドレス常駐アプリ
 │  └─ DoorMonitor.Functions/   # Azure Functions (C# / .NET 8 Isolated)
 ├─ tests/
-│  └─ DoorMonitor.Core.Tests/  # xUnit
+│  ├─ DoorMonitor.Core.Tests/  # xUnit
+│  └─ DoorMonitor.Gateway.Tests/ # xUnit（設定・コマンドライン引数）
 ├─ web/                        # Vite + React + TypeScript
 ├─ DoorMonitor.sln
 └─ Directory.Build.props
@@ -291,13 +304,13 @@ door-iot/
 
 ### 8.6 CI
 
-GitHub Actions（`.github/workflows/ci.yml`）で .NET のビルド・テスト、Web のテスト・ビルド・lint、Bicep の構文検証を継続的に確認する。ゲートウェイの単一 exe の publish は `main` への push 時のみ実行し、PR の待ち時間を抑える。
+GitHub Actions（`.github/workflows/ci.yml`）で .NET のビルド・テスト、Web のテスト・ビルド・lint、Bicep の構文検証を継続的に確認する。Ubuntu 用ゲートウェイは `ubuntu-latest` でビルドできることも確認する。ゲートウェイの単一実行ファイルの publish は `main` への push 時のみ実行し、PR の待ち時間を抑える。
 
 ### 8.7 テレメトリの再送キュー
 
 通信断や Functions の一時的なエラーでテレメトリを失わないため、ゲートウェイは受信したテレメトリをローカルへ永続化してから順に送信する（at-least-once）。
 
-- **保存形式**: `%LOCALAPPDATA%\DoorMonitor\queue\` に 1 件 1 ファイルの JSON（連番のファイル名）。一時ファイルへ書いてからリネームし、書きかけのファイルを残さない。
+- **保存形式**: `%LOCALAPPDATA%\DoorMonitor\queue\`（Ubuntu では `~/.local/share/DoorMonitor/queue/`）に 1 件 1 ファイルの JSON（連番のファイル名）。一時ファイルへ書いてからリネームし、書きかけのファイルを残さない。
 - **順序保証**: 受信順（FIFO）で送信する。`open` → `closed` の順序が入れ替わるとサーバー側の `openedAt` が誤るため、失敗した電文が残っている間は後続を先に送らない。
 - **再試行**: 失敗時は指数バックオフ（5 秒 → 最大 60 秒）で再送する。成功したらキューから削除する。
 - **再起動**: キューはディスクに残るため、ゲートウェイを再起動しても失われない。起動後は古い電文から順に送信する。
@@ -316,7 +329,7 @@ GitHub Actions（`.github/workflows/ci.yml`）で .NET のビルド・テスト�
 
 ### 8.9 実装状況（2026-11-23 時点）
 
-- 実装済み: `App_Twelite` 0x81 電文パース（LRC8 検証・DI1 の開閉変換）、デバウンス、開閉状態の遷移、API 4 本、Table / InMemory リポジトリ、ポーリング Web 画面、トレイアプリの骨格、テレメトリの再送キュー、開閉履歴、Bicep による Azure リソース定義、Azure へのデプロイ、実機（TWELITE + MONOSTICK）での通し確認、GitHub Release 用のリリースワークフロー（2026-11-23）。
+- 実装済み: `App_Twelite` 0x81 電文パース（LRC8 検証・DI1 の開閉変換）、デバウンス、開閉状態の遷移、API 4 本、Table / InMemory リポジトリ、ポーリング Web 画面、トレイアプリの骨格、Ubuntu 用ヘッドレス版、テレメトリの再送キュー、開閉履歴、Bicep による Azure リソース定義、Azure へのデプロイ、実機（TWELITE + MONOSTICK）での通し確認、GitHub Release 用のリリースワークフロー（2026-11-23）。
 - 1台構成のプロトタイプは完成とする（2026-11-23）。残課題はプロトタイプの必須機能ではなく、運用上の改善として扱う。
 - プロトタイプの対象外: 複数台運用、フロアマップ表示、表示メタデータ（部屋名・地図座標・警告閾値）の管理 API/UI。
 - 残課題: オフライン表示（電池抜き・PC停止）の実機確認、デプロイの自動化（CD）、Timer Trigger による `DoorEvents` の削除とバックグラウンド死活判定。

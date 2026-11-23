@@ -1,11 +1,14 @@
 namespace DoorMonitor.Gateway.Configuration;
 
-/// <summary>PC ゲートウェイのユーザー設定。%LOCALAPPDATA%\DoorMonitor\gateway.settings.json に保存する。</summary>
+/// <summary>PC ゲートウェイのユーザー設定。Windows は %LOCALAPPDATA%\DoorMonitor\、Ubuntu は ~/.local/share/DoorMonitor/ に保存する。</summary>
 public sealed class GatewaySettings
 {
     public string GatewayId { get; set; } = "gw-pc-01";
 
-    public string ComPort { get; set; } = "COM3";
+    /// <summary>MONOSTICK のシリアルポート。Windows は COM3、Ubuntu は /dev/ttyUSB0 を既定にする。</summary>
+    public string ComPort { get; set; } = DefaultComPort;
+
+    public static string DefaultComPort { get; } = OperatingSystem.IsWindows() ? "COM3" : "/dev/ttyUSB0";
 
     public int BaudRate { get; set; } = 115200;
 

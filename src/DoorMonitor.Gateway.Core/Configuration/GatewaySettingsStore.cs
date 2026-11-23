@@ -41,7 +41,12 @@ public sealed class GatewaySettingsStore
 
     public void Save(GatewaySettings settings)
     {
-        Directory.CreateDirectory(System.IO.Path.GetDirectoryName(_path)!);
+        var directory = System.IO.Path.GetDirectoryName(_path);
+        if (!string.IsNullOrEmpty(directory))
+        {
+            Directory.CreateDirectory(directory);
+        }
+
         File.WriteAllText(_path, JsonSerializer.Serialize(settings, JsonOptions));
     }
 

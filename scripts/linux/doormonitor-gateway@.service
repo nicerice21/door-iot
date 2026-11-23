@@ -1,0 +1,19 @@
+[Unit]
+Description=DoorMonitor gateway (MONOSTICK -> Azure Functions) for user %i
+Documentation=https://github.com/nicerice21/door-iot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=%i
+# シリアルデバイス (/dev/ttyUSB0 など) へアクセスするため、ユーザーを dialout グループへ追加しておく。
+ExecStart=/opt/doormonitor/doormonitor-gateway
+Restart=always
+RestartSec=5
+SyslogIdentifier=doormonitor-gateway
+# 設定ファイルは実行ユーザーの ~/.local/share/DoorMonitor/gateway.settings.json を使う。
+# 別の場所に置く場合は ExecStart に --settings <path> を追加する。
+
+[Install]
+WantedBy=multi-user.target

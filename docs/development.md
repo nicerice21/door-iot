@@ -16,6 +16,7 @@
 ```powershell
 dotnet build DoorMonitor.sln
 dotnet test tests\DoorMonitor.Core.Tests\DoorMonitor.Core.Tests.csproj
+dotnet test tests\DoorMonitor.Gateway.Tests\DoorMonitor.Gateway.Tests.csproj
 ```
 
 ```powershell
@@ -33,12 +34,15 @@ npm run lint
 | パス | 責務 |
 | :--- | :--- |
 | `src/DoorMonitor.Core` | ドメインモデル、開閉状態の遷移、デバウンス、死活判定、TWELITE パーサ |
-| `src/DoorMonitor.Gateway` | シリアル受信、クラウド送信、タスクトレイ UI |
+| `src/DoorMonitor.Gateway.Core` | シリアル受信、クラウド送信、再送キュー、設定の読み書き（両ホストで共有） |
+| `src/DoorMonitor.Gateway` | Windows 用のタスクトレイ UI（WinForms） |
+| `src/DoorMonitor.Gateway.Cli` | Ubuntu 用のヘッドレス実行ファイル（`doormonitor-gateway`） |
 | `src/DoorMonitor.Functions` | HTTP API、Table Storage / メモリリポジトリ |
 | `web` | 状態カード表示、ポーリング、毎秒の経過時間更新 |
 | `infra` | Azure リソース定義（Bicep） |
-| `scripts` | Azure へのデプロイスクリプト（`deploy.ps1`） |
+| `scripts` | Azure へのデプロイスクリプト（`deploy.ps1`）と Linux の systemd ユニット |
 | `tests/DoorMonitor.Core.Tests` | Core の単体テスト |
+| `tests/DoorMonitor.Gateway.Tests` | 設定・コマンドライン引数の単体テスト |
 
 Azure へのデプロイ手順は [deployment.md](deployment.md) を参照してください。
 
@@ -47,7 +51,7 @@ Azure へのデプロイ手順は [deployment.md](deployment.md) を参照して
 ```text
 TWELITE (App_Twelite 0x81)
   → MONOSTICK → Gateway (パース + デバウンス)
-  → 再送キュー（%LOCALAPPDATA%\DoorMonitor\queue に永続化）
+  → 再送キュー（`%LOCALAPPDATA%\DoorMonitor\queue` / Ubuntu は `~/.local/share/DoorMonitor/queue` に永続化）
   → POST /api/telemetry（古い電文から順に送信。失敗時は指数バックオフで再試行）
   → DoorEvents（開閉が変化したときだけ履歴を記録）
   → DoorStateReducer（openedAt / lastSeenAt の更新）
@@ -153,9 +157,7 @@ npm run dev
 
 ## 6. PC ゲートウェイ
 
-```powershell
-dotnet run --project src\DoorMonitor.Gateway
-```
+シリアル受信・再送キュー・API 送信・設定の読み書きは `DoorMonitor.Gateway.Core` にあり、Windows のトレイアプリと Ubuntu のヘッドレス版で共通です。違うのはホスト（画面の有無）だけです。
 
 - 対応電文: `App_Twelite` の 0x81（23 バイト、LRC8 チェックサム）
 - シリアル: 115200 bps / 8-N-1
@@ -164,13 +166,54 @@ dotnet run --project src\DoorMonitor.Gateway
 - シリアル切断時は `ReconnectDelaySeconds`（既定 5秒）後に再接続
 - ゲートウェイ自身のハートビートを `HeartbeatIntervalSeconds`（既定 60秒）ごとに送信
 
-設定ファイル: `%LOCALAPPDATA%\DoorMonitor\gateway.settings.json`
+### Windows（タスクトレイ）
+
+```powershell
+dotnet run --project src\DoorMonitor.Gateway
+```
+
+起動するとタスクトレイに常駐します。設定はトレイアイコンの「設定...」から変更でき、`%LOCALAPPDATA%\DoorMonitor\gateway.settings.json` に保存されます。
+
+### Ubuntu（ヘッドレス）
+
+```bash
+# 単一実行ファイルを作る（Windows からのクロス publish も可能）
+dotnet publish src/DoorMonitor.Gateway.Cli -p:PublishProfile=linux-x64 -p:DebugType=None -p:DebugSymbols=false
+# → publish/gateway-linux/doormonitor-gateway
+
+# 実行（設定はコマンドライン引数で上書きできる）
+./doormonitor-gateway \
+  --com-port /dev/ttyUSB0 \
+  --api-base-url https://func-doormon-dev-xxxxxxxxxxxxx.azurewebsites.net \
+  --api-key "$API_KEY"
+```
+
+| オプション | 内容 |
+| :--- | :--- |
+| `--settings <path>` | 設定ファイル（既定: `~/.local/share/DoorMonitor/gateway.settings.json`） |
+| `--com-port <path>` | シリアルポート（既定: `/dev/ttyUSB0`） |
+| `--api-base-url <url>` | Azure Functions のベース URL |
+| `--api-key <key>` | 書き込み API のキー |
+| `--gateway-id <id>` | ゲートウェイ ID |
+| `--list-ports` | 利用可能なシリアルポートを表示して終了 |
+| `--print-config` | 有効な設定を表示して終了（API キーは伏せ字） |
+| `--version` / `-h`, `--help` | バージョン・ヘルプを表示して終了 |
+
+- 設定ファイルがない場合は既定値で作成し、編集を促して終了コード 2 を返します。コマンドラインで指定した値は保存されません。
+- ログは標準出力と標準エラーへ出します。systemd で動かすと journal に残ります。
+- `Ctrl+C` と `SIGTERM`（`systemctl stop`）で、未送信キューのファイルを閉じてから終了します。
+- シリアルデバイスへアクセスするため、実行ユーザーを `dialout` グループへ追加してください（再ログインが必要）。
+- `libicu` が入っていない最小構成の Ubuntu でも動くよう、Linux 版は `InvariantGlobalization` でビルドしています。日時は明示的な書式で出力しているため表示は変わりません。
+
+```bash
+sudo usermod -aG dialout "$USER"
+```
 
 ### テレメトリの再送キュー
 
 受信したテレメトリは送信前にディスクへ保存されるため、API が落ちていても失われません。
 
-- 保存先は既定で `%LOCALAPPDATA%\DoorMonitor\queue`（1 件 1 ファイルの JSON、連番）
+- 保存先は既定で `%LOCALAPPDATA%\DoorMonitor\queue`（Ubuntu は `~/.local/share/DoorMonitor/queue`）。1 件 1 ファイルの JSON、連番
 - 送信は古い順。失敗した電文が残っている間は後続を送らない（`openedAt` の順序を守るため）
 - 失敗時は 5 秒から最大 60 秒の指数バックオフで再試行
 - 上限は既定 1,000 件。超過時は古いものから破棄し、ログに警告を残す
@@ -178,10 +221,12 @@ dotnet run --project src\DoorMonitor.Gateway
 
 | キー | 既定値 | 内容 |
 | :--- | :--- | :--- |
-| `TelemetryQueueDirectory` | `%LOCALAPPDATA%\DoorMonitor\queue` | 再送キューの保存先 |
+| `TelemetryQueueDirectory` | `%LOCALAPPDATA%\DoorMonitor\queue`（Ubuntu は `~/.local/share/DoorMonitor/queue`） | 再送キューの保存先 |
 | `TelemetryQueueCapacity` | `1000` | キューの上限件数 |
 
-### 単一 exe の作成
+### 単一実行ファイルの作成
+
+Windows（単一 exe）:
 
 ```powershell
 dotnet publish src\DoorMonitor.Gateway -p:PublishProfile=win-x64
@@ -189,22 +234,42 @@ dotnet publish src\DoorMonitor.Gateway -p:PublishProfile=win-x64
 
 出力: `publish\gateway\DoorMonitor.Gateway.exe`（self-contained / single file）。`publish/` は Git 管理対象外です。
 
+Ubuntu（linux-x64）:
+
+```bash
+dotnet publish src/DoorMonitor.Gateway.Cli -p:PublishProfile=linux-x64 -p:DebugType=None -p:DebugSymbols=false
+```
+
+出力: `publish/gateway-linux/doormonitor-gateway`（self-contained / single file）。
+
 ### GitHub Release の作成
 
 `v1.0.0` のようなタグを push すると、`.github/workflows/release.yml` が次を実行します。
 
-1. Core のテスト（Release 構成）
-2. ゲートウェイの単一 exe を publish
-3. exe・`README.txt`・`LICENSE` を ZIP にまとめる
-4. SHA256 チェックサムを作成
-5. GitHub Release に ZIP とチェックサムを添付
+1. Core とゲートウェイのテスト（Release 構成）
+2. Windows 用の単一 exe を publish（`windows-latest`）
+3. Ubuntu 用の単一実行ファイルを publish（`ubuntu-latest`）
+4. exe・`README.txt`・`LICENSE` を ZIP、Linux 版を tar.gz にまとめる
+5. それぞれの SHA256 チェックサムを作成
+6. GitHub Release に両方とチェックサムを添付
 
 ```powershell
 git tag v1.0.0
 git push origin v1.0.0
 ```
 
-タグは `vX.Y.Z` 形式を推奨します。形式に合う場合は exe のファイルバージョンにも反映されます。タグに `-` を含めるとプレリリースとして作成されます。既存の Release に同じタグで再実行した場合は、資産を上書きします。
+タグは `vX.Y.Z` 形式を推奨します。形式に合う場合は実行ファイルのバージョンにも反映されます。タグに `-` を含めるとプレリリースとして作成されます。既存の Release に同じタグで再実行した場合は、資産を上書きします。
+
+### Ubuntu での動作確認（2026-11-23）
+
+WSL2 の Ubuntu 26.04（x64）で、実機の代わりに pty をシリアルポートとして使って確認しました。
+
+- `dotnet publish -p:PublishProfile=linux-x64` で単一実行ファイルができること
+- pty へ `App_Twelite` の 0x81 電文を流すと、`POST /api/telemetry` に `deviceId` / `state` / `batteryMv` / `lqi` が送られること
+- 起動直後に `POST /api/heartbeat` が送られること
+- `SIGTERM` で終了コード 0 のまま停止すること
+
+実際の MONOSTICK と `/dev/ttyUSB0` での確認はまだ行っていません。
 
 ## 7. CI とリリース（GitHub Actions）
 
@@ -212,15 +277,16 @@ git push origin v1.0.0
 
 | ジョブ | ランナー | 内容 |
 | :--- | :--- | :--- |
-| `.NET build & test` | `windows-latest` | `dotnet restore` → `dotnet build DoorMonitor.sln` → Core のテスト → `scripts/deploy.ps1` の構文チェック |
+| `.NET build & test` | `windows-latest` | `dotnet restore` → `dotnet build DoorMonitor.sln` → Core / Gateway のテスト → `scripts/deploy.ps1` の構文チェック |
+| `Gateway (linux-x64)` | `ubuntu-latest` | ヘッドレス版のビルドとテスト（Linux で壊れていないことの確認） |
 | `Web test & build` | `ubuntu-latest` | `npm ci` → `npm test` → `npm run build` → `npm run lint` |
 | `Bicep build` | `ubuntu-latest` | `az bicep build --file infra/main.bicep` |
 | `Gateway publish (win-x64)` | `windows-latest` | `main` への push 時のみ単一 exe を publish |
 
 - `pull_request` と `main` への push で実行されます（`main` 以外への push では実行されません）。
-- ゲートウェイは WinForms のため、.NET のジョブは Windows ランナー固定です。
+- Windows 用ゲートウェイは WinForms のため、.NET のジョブは Windows ランナー固定です。Ubuntu 用は別ジョブで `ubuntu-latest` によりビルドします。
 - ローカルで同じ確認をする場合は、[2 章](#2-ビルドとテスト)のコマンドを実行してください。
-- タグ `v*` を push すると `release.yml` が実行され、GitHub Release にゲートウェイの ZIP と SHA256 を添付します。`release.yml` はタグ push だけをトリガーにします。
+- タグ `v*` を push すると `release.yml` が実行され、Windows と Ubuntu のゲートウェイを GitHub Release に添付します。`release.yml` はタグ push だけをトリガーにします。
 
 ## 8. 既知の制約
 
