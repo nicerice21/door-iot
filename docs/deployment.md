@@ -236,7 +236,9 @@ npx @azure/static-web-apps-cli deploy web\dist `
 
 GitHub Actions から配置する場合は、取得したトークンをリポジトリのシークレット（例: `AZURE_STATIC_WEB_APPS_API_TOKEN`）に登録し、`Azure/static-web-apps-deploy@v1` を使うワークフローを追加します。`app_location: web`、`output_location: dist`、ビルド時の環境変数 `VITE_API_BASE_URL` を設定してください。このワークフローはまだリポジトリに含めていません。
 
-## 6. ゲートウェイの接続先を変更する
+## 6. ゲートウェイを配置する
+
+### 6.1 Windows（タスクトレイ）
 
 タスクトレイの「設定...」で次を設定します。
 
@@ -246,6 +248,71 @@ GitHub Actions から配置する場合は、取得したトークンをリポ�
 | API キー | デプロイ時に指定した `apiKey` |
 
 設定は `%LOCALAPPDATA%\DoorMonitor\gateway.settings.json` に保存されます。`ApiKey` が空のまま本番環境へ送ると 401 になるため、必ず設定してください。
+
+### 6.2 Ubuntu（ヘッドレス / systemd）
+
+画面のない Ubuntu 22.04 以降 (x64) では、GitHub Release の `linux-x64` 版を使います。
+
+1. 実行ファイルを配置します。
+
+   ```bash
+   sudo install -d -m 755 /opt/doormonitor
+   sudo install -m 755 doormonitor-gateway /opt/doormonitor/
+   ```
+
+2. シリアルデバイスへアクセスできるようにします（再ログインが必要です）。
+
+   ```bash
+   sudo usermod -aG dialout "$USER"
+   ```
+
+3. MONOSTICK のポートを確認します。
+
+   ```bash
+   /opt/doormonitor/doormonitor-gateway --list-ports
+   ```
+
+4. 初回は設定ファイルを作成するため、終了コード 2 で止まります。表示されたパスの値を編集します。
+
+   ```bash
+   /opt/doormonitor/doormonitor-gateway
+   # → ~/.local/share/DoorMonitor/gateway.settings.json を作成して終了
+
+   nano ~/.local/share/DoorMonitor/gateway.settings.json
+   # comPort: /dev/ttyUSB0
+   # apiBaseUrl: https://func-doormon-dev-xxxxxxxxxxxxx.azurewebsites.net
+   # apiKey: デプロイ時に指定した値
+   ```
+
+   ```bash
+   /opt/doormonitor/doormonitor-gateway --print-config   # 内容を確認（API キーは伏せ字）
+   ```
+
+5. systemd に登録します。`scripts/linux/doormonitor-gateway@.service` はユーザー名を引数に取るテンプレートユニットです。
+
+   ```bash
+   sudo cp scripts/linux/doormonitor-gateway@.service /etc/systemd/system/
+   sudo systemctl daemon-reload
+   sudo systemctl enable --now "doormonitor-gateway@$USER"
+   ```
+
+6. 状態とログを確認します。
+
+   ```bash
+   systemctl status "doormonitor-gateway@$USER"
+   journalctl -u "doormonitor-gateway@$USER" -f
+   ```
+
+   ```text
+   ... [/dev/ttyUSB0 接続中（SerialConnected）]
+   ... [0x8201015A open を送信しました]
+   ```
+
+設定を変更したら `sudo systemctl restart "doormonitor-gateway@$USER"` で反映します。
+
+- 設定を `/etc` など別の場所に置く場合は、ユニットの `ExecStart` に `--settings /etc/doormonitor/gateway.settings.json` を追加してください。
+- シリアルポートが `/dev/ttyUSB0` 以外になる場合は `comPort` を変更します（`/dev/ttyACM0` など）。
+- ログは journal に残ります。`journalctl` の保存期間は `/etc/systemd/journald.conf` で調整できます。
 
 ## 7. コストの確認と削除
 

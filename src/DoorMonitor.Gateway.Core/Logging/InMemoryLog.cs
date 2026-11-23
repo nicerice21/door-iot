@@ -22,17 +22,23 @@ public sealed class InMemoryLog
 
     public event EventHandler? Changed;
 
+    /// <summary>追加されたログ。コンソールや journal へ出力するホストが購読する。</summary>
+    public event EventHandler<LogEntry>? Appended;
+
     public void Add(string message, LogLevel level = LogLevel.Info)
     {
+        LogEntry entry;
         lock (_gate)
         {
-            _entries.AddFirst(new LogEntry(DateTimeOffset.UtcNow, level, message));
+            entry = new LogEntry(DateTimeOffset.UtcNow, level, message);
+            _entries.AddFirst(entry);
             while (_entries.Count > MaxEntries)
             {
                 _entries.RemoveLast();
             }
         }
 
+        Appended?.Invoke(this, entry);
         Changed?.Invoke(this, EventArgs.Empty);
     }
 

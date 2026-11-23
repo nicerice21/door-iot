@@ -17,8 +17,8 @@ env:
   DOTNET_CLI_TELEMETRY_OPTOUT: true
 
 jobs:
-  release:
-    name: Build and publish gateway
+  windows:
+    name: Windows (win-x64)
     runs-on: windows-latest
     steps:
       - name: Checkout
@@ -30,7 +30,9 @@ jobs:
           dotnet-version: 8.0.x
 
       - name: Test
-        run: dotnet test tests\DoorMonitor.Core.Tests\DoorMonitor.Core.Tests.csproj -c Release
+        run: |
+          dotnet test tests\DoorMonitor.Core.Tests\DoorMonitor.Core.Tests.csproj -c Release
+          dotnet test tests\DoorMonitor.Gateway.Tests\DoorMonitor.Gateway.Tests.csproj -c Release
 
       - name: Publish and package
         shell: pwsh
@@ -77,7 +79,7 @@ jobs:
           Copy-Item -Path (Join-Path $root 'LICENSE') -Destination $stageDir
 
           $readme = @"
-          DoorMonitor Gateway $tag
+          DoorMonitor Gateway $tag (Windows x64)
 
           Windows 10/11 (x64) 用のゲートウェイアプリです。
 
@@ -86,6 +88,7 @@ jobs:
           3. 設定は %LOCALAPPDATA%\DoorMonitor\gateway.settings.json に保存されます。
 
           署名なしの exe のため、SmartScreen の警告が表示される場合があります。
+          同じバージョンの Ubuntu 版は DoorMonitor.Gateway-$safeTag-linux-x64.tar.gz です。
           "@
           $readme | Set-Content -Path (Join-Path $stageDir 'README.txt') -Encoding utf8
 
@@ -94,65 +97,156 @@ jobs:
           $hash = (Get-FileHash -Path $zipPath -Algorithm SHA256).Hash.ToLowerInvariant()
           "$hash  $([IO.Path]::GetFileName($zipPath))" | Set-Content -Path $checksumPath -Encoding ascii
 
-          Add-Content -Path $env:GITHUB_ENV -Value "GATEWAY_TAG=$tag"
-          Add-Content -Path $env:GITHUB_ENV -Value "GATEWAY_ASSET_BASE=$assetBase"
-          Add-Content -Path $env:GITHUB_ENV -Value "GATEWAY_ZIP=$zipPath"
-          Add-Content -Path $env:GITHUB_ENV -Value "GATEWAY_CHECKSUM=$checksumPath"
-
           Write-Host "Created $zipPath"
           Write-Host "SHA256: $hash"
 
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-win-x64
+          path: |
+            release/*.zip
+            release/*.sha256
+          if-no-files-found: error
+
+  linux:
+    name: Ubuntu (linux-x64)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Test
+        run: |
+          dotnet test tests/DoorMonitor.Core.Tests/DoorMonitor.Core.Tests.csproj -c Release
+          dotnet test tests/DoorMonitor.Gateway.Tests/DoorMonitor.Gateway.Tests.csproj -c Release
+
+      - name: Publish and package
+        env:
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+
+          tag="$TAG_NAME"
+          version="${tag#v}"
+          safe_tag=$(printf '%s' "$tag" | sed 's/[^0-9A-Za-z._-]/-/g')
+          asset_base="DoorMonitor.Gateway-${safe_tag}-linux-x64"
+
+          release_dir="$PWD/release"
+          publish_dir="$release_dir/publish"
+          stage_dir="$release_dir/stage"
+          rm -rf "$release_dir"
+          mkdir -p "$publish_dir" "$stage_dir"
+
+          args=(publish src/DoorMonitor.Gateway.Cli -p:PublishProfile=linux-x64 -p:DebugType=None -p:DebugSymbols=false -o "$publish_dir")
+          if [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]; then
+            args+=("-p:Version=$version")
+          else
+            echo "::warning::タグ '$tag' は vX.Y.Z 形式ではないため、アセンブリのバージョンは既定値になります。"
+          fi
+
+          dotnet "${args[@]}"
+
+          "$publish_dir/doormonitor-gateway" --version
+
+          cp "$publish_dir/doormonitor-gateway" "$stage_dir/"
+          cp LICENSE "$stage_dir/"
+          cat > "$stage_dir/README.txt" <<EOF
+          DoorMonitor Gateway $tag (Ubuntu x64)
+
+          Ubuntu 22.04 以降 (x64) 用のヘッドレス版ゲートウェイです。
+
+          1. tar -xzf $asset_base.tar.gz で展開します。
+          2. ./doormonitor-gateway --list-ports で MONOSTICK のポートを確認します。
+          3. 初回は ./doormonitor-gateway を実行すると ~/.local/share/DoorMonitor/gateway.settings.json を作成して終了します。
+          4. 設定ファイルの comPort / apiBaseUrl / apiKey を編集してから再実行します。
+
+          シリアルデバイスへアクセスするため、実行ユーザーを dialout グループへ追加してください。
+          常駐させる手順はリポジトリの docs/deployment.md 6.2 を参照してください。
+
+          同じバージョンの Windows 版は DoorMonitor.Gateway-$safe_tag-win-x64.zip です。
+          EOF
+
+          tar -czf "$release_dir/$asset_base.tar.gz" -C "$stage_dir" doormonitor-gateway README.txt LICENSE
+          (cd "$release_dir" && sha256sum "$asset_base.tar.gz" > "$asset_base.sha256")
+
+          ls -l "$release_dir"
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-linux-x64
+          path: |
+            release/*.tar.gz
+            release/*.sha256
+          if-no-files-found: error
+
+  release:
+    name: Create GitHub Release
+    needs: [windows, linux]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
       - name: Create GitHub Release
-        shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
           TAG_NAME: ${{ github.ref_name }}
         run: |
-          $tag = $env:TAG_NAME
-          $assets = @($env:GATEWAY_ZIP, $env:GATEWAY_CHECKSUM)
-          $notesPath = Join-Path $env:GITHUB_WORKSPACE 'release\notes.md'
+          set -euo pipefail
 
-          $notes = @"
+          tag="$TAG_NAME"
+          safe_tag=$(printf '%s' "$tag" | sed 's/[^0-9A-Za-z._-]/-/g')
+          mapfile -t assets < <(find dist -maxdepth 1 -type f | sort)
+          printf '%s\n' "${assets[@]}"
+
+          cat > notes.md <<EOF
           ## DoorMonitor Gateway $tag
 
-          Windows 10/11 (x64) 用のゲートウェイアプリです。
+          - Windows 10/11 (x64): \`DoorMonitor.Gateway-$safe_tag-win-x64.zip\`
+          - Ubuntu 22.04 以降 (x64): \`DoorMonitor.Gateway-$safe_tag-linux-x64.tar.gz\`
 
-          ### 使い方
+          ### Windows
 
-          1. ``$($env:GATEWAY_ASSET_BASE).zip`` を展開します。
-          2. ``DoorMonitor.Gateway.exe`` を実行します。
+          1. ZIP を展開します。
+          2. \`DoorMonitor.Gateway.exe\` を実行します。
           3. タスクトレイの「設定...」で API ベース URL と API キーを設定します。
 
-          設定は ``%LOCALAPPDATA%\DoorMonitor\gateway.settings.json`` に保存されます。
-          署名なしの exe のため、SmartScreen の警告が表示される場合があります。
+          設定は \`%LOCALAPPDATA%\DoorMonitor\gateway.settings.json\` に保存されます。
 
-          ``*.sha256`` に SHA256 チェックサムを添付しています。
-          "@
-          $notes | Set-Content -Path $notesPath -Encoding utf8
+          ### Ubuntu（ヘッドレス）
 
-          gh release view $tag --json tagName 2>$null | Out-Null
-          if ($LASTEXITCODE -eq 0) {
-            Write-Host "Release '$tag' already exists. Uploading assets."
-            gh release upload $tag @assets --clobber
-            if ($LASTEXITCODE -ne 0) {
-              throw 'リリース資産のアップロードに失敗しました。'
-            }
+          \`\`\`bash
+          tar -xzf DoorMonitor.Gateway-$safe_tag-linux-x64.tar.gz
+          ./doormonitor-gateway --list-ports
+          ./doormonitor-gateway
+          # 初回は ~/.local/share/DoorMonitor/gateway.settings.json を作成して終了します。
+          \`\`\`
+
+          シリアルデバイスへアクセスするため、実行ユーザーを \`dialout\` グループへ追加してください。
+
+          \`*.sha256\` に SHA256 チェックサムを添付しています。
+          EOF
+
+          if gh release view "$tag" --json tagName >/dev/null 2>&1; then
+            echo "Release '$tag' already exists. Uploading assets."
+            gh release upload "$tag" "${assets[@]}" --clobber
             exit 0
-          }
+          fi
 
-          $createArgs = @(
-            'release', 'create', $tag,
-            $env:GATEWAY_ZIP,
-            $env:GATEWAY_CHECKSUM,
-            '--title', "DoorMonitor Gateway $tag",
-            '--notes-file', $notesPath,
-            '--verify-tag'
-          )
-          if ($tag -match '-') {
-            $createArgs += '--prerelease'
-          }
+          args=(release create "$tag" --title "DoorMonitor Gateway $tag" --notes-file notes.md --verify-tag)
+          args+=("${assets[@]}")
+          if [[ "$tag" == *-* ]]; then
+            args+=(--prerelease)
+          fi
 
-          gh @createArgs
-          if ($LASTEXITCODE -ne 0) {
-            throw 'GitHub Release の作成に失敗しました。'
-          }
+          gh "${args[@]}"

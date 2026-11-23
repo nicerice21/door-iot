@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>DoorMonitor.Gateway.Cli</RootNamespace>
+    <!-- Ubuntu の慣習に合わせて小文字の実行ファイル名にする。 -->
+    <AssemblyName>doormonitor-gateway</AssemblyName>
+    <!--
+      libicu が入っていない最小構成の Ubuntu でも単一ファイルのまま動かせるようにする。
+      日時は明示的な書式で出力し、数値の解析は InvariantCulture を使っているため影響しない。
+    -->
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\DoorMonitor.Gateway.Core\DoorMonitor.Gateway.Core.csproj" />
+  </ItemGroup>
+</Project>

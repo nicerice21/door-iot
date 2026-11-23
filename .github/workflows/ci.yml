@@ -34,6 +34,9 @@ jobs:
       - name: Test
         run: dotnet test tests\DoorMonitor.Core.Tests\DoorMonitor.Core.Tests.csproj --no-build
 
+      - name: Test gateway
+        run: dotnet test tests\DoorMonitor.Gateway.Tests\DoorMonitor.Gateway.Tests.csproj --no-build
+
       - name: Check PowerShell syntax
         shell: pwsh
         run: |
@@ -86,6 +89,32 @@ jobs:
 
       - name: Build
         run: az bicep build --file infra/main.bicep --stdout > /dev/null
+
+  gateway-linux:
+    name: Gateway (linux-x64)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Test
+        run: dotnet test tests/DoorMonitor.Gateway.Tests/DoorMonitor.Gateway.Tests.csproj
+
+      - name: Publish
+        run: >
+          dotnet publish src/DoorMonitor.Gateway.Cli
+          -p:PublishProfile=linux-x64
+          -p:DebugType=None
+          -p:DebugSymbols=false
+          -o out
+
+      - name: Smoke test
+        run: ./out/doormonitor-gateway --version
 
   gateway-publish:
     name: Gateway publish (win-x64)
