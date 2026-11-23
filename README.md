@@ -6,6 +6,39 @@ EngineeringDesign入門のプロトタイプ。TWELITE 1台とリードスイッ
 
 設計の正本は [docs/requirements.md](docs/requirements.md) です。実装の詳細と運用手順は [docs/development.md](docs/development.md) を参照してください。
 
+## システム構成
+
+```mermaid
+flowchart TB
+    subgraph HW["子機（1台）"]
+        SW["リードスイッチ (NO)<br/>ドア閉＝導通"] --> TWELITE["TWELITE DIP<br/>App_Twelite"]
+    end
+
+    subgraph GW["親機・ゲートウェイ"]
+        MONO["MONOSTICK-R（USB 接続）"]
+        CORE["DoorMonitor.Gateway.Core<br/>受信・パース・デバウンス<br/>再送キュー・HTTPS 送信・設定"]
+        WIN["DoorMonitor.Gateway<br/>Windows タスクトレイ（WinForms）"]
+        LINUX["DoorMonitor.Gateway.Cli<br/>Ubuntu ヘッドレス（systemd）"]
+        WIN -. 共有 .-> CORE
+        LINUX -. 共有 .-> CORE
+    end
+
+    subgraph CLOUD["クラウド（Azure・学生クレジット枠内）"]
+        FUNC["Azure Functions（.NET 8 Isolated）<br/>POST telemetry / heartbeat<br/>GET doors / history"]
+        STORE["Azure Table Storage<br/>Devices・Gateways・DoorEvents"]
+        SWA["Azure Static Web Apps（Free）<br/>React SPA"]
+    end
+
+    CLIENT["Web ブラウザ<br/>（認証なし・全体公開）"]
+
+    TWELITE -- "2.4GHz 電文（状態変化＋定期）" --> MONO
+    MONO -- "USB シリアル（ASCII）" --> CORE
+    CORE -- "HTTPS（X-Api-Key）" --> FUNC
+    FUNC --> STORE
+    SWA -- "SPA を配信" --> CLIENT
+    CLIENT -- "GET /api/doors（数秒おきのポーリング）" --> FUNC
+```
+
 ## リポジトリ構成
 
 ```text
