@@ -102,6 +102,28 @@ public sealed class TableDoorRepository : IDoorRepository
         return events;
     }
 
+    public async Task<IReadOnlyList<DoorEvent>> GetDoorEventsAsync(
+        string deviceId,
+        DateTimeOffset from,
+        DateTimeOffset to,
+        CancellationToken cancellationToken)
+    {
+        await EnsureTablesAsync(cancellationToken).ConfigureAwait(false);
+
+        var filter = TableClient.CreateQueryFilter(
+            $"PartitionKey eq {deviceId} and RowKey ge {TableRowKeys.Inverted(to)} and RowKey le {TableRowKeys.Inverted(from)}");
+
+        var events = new List<DoorEvent>();
+        await foreach (var entity in _doorEvents.QueryAsync<DoorEventEntity>(filter, cancellationToken: cancellationToken).ConfigureAwait(false))
+        {
+            events.Add(DoorEventMapper.ToEvent(entity));
+        }
+
+        // RowKey の昇順は新しい順なので、古い順に直す。
+        events.Reverse();
+        return events;
+    }
+
     public async Task UpsertBatterySampleAsync(BatterySample sample, CancellationToken cancellationToken)
     {
         await EnsureTablesAsync(cancellationToken).ConfigureAwait(false);
@@ -135,8 +157,7 @@ public sealed class TableDoorRepository : IDoorRepository
         return samples;
     }
 
-    public async Task<GatewayRecord?> GetGatewayAsync(string gatewayId, CancellationToken cancellationToken)
-    {
+    public async Task<GatewayRecord?> GetGatewayAsync(string gatewayId, CancellationToken cancellationToken)    {
         await EnsureTablesAsync(cancellationToken).ConfigureAwait(false);
 
         try

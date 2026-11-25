@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createMockBatteryHistory, createMockHistory } from './mock'
+import { createMockBatteryHistory, createMockHistory, createMockStats } from './mock'
 
 describe('createMockHistory', () => {
   it('returns events newest first', () => {
@@ -39,5 +39,17 @@ describe('createMockBatteryHistory', () => {
 
     expect(history.summary.minMv).toBe(Math.min(...values))
     expect(history.summary.averageMv).toBe(Math.round(values.reduce((sum, value) => sum + value, 0) / values.length))
+  })
+})
+
+describe('createMockStats', () => {
+  it('returns one row per day and consistent totals', () => {
+    const stats = createMockStats('0x8201015A', 7, 540)
+
+    expect(stats.daily).toHaveLength(7)
+    expect(stats.openCount).toBe(stats.daily.reduce((sum, day) => sum + day.openCount, 0))
+    expect(stats.totalOpenSeconds).toBe(stats.daily.reduce((sum, day) => sum + day.openSeconds, 0))
+    expect(stats.openCountByHour.reduce((sum, count) => sum + count, 0)).toBe(stats.openCount)
+    expect(stats.daily[0].date).toMatch(/^\d{4}-\d{2}-\d{2}$/)
   })
 })

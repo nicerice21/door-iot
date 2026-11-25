@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildChartGeometry, formatAxisTime, formatVoltage, summarize } from './battery'
+import { buildChartGeometry, formatAxisTime, formatTrendRate, formatVoltage, isBatteryLow, summarize } from './battery'
 import type { BatterySample } from '../types/doors'
 
 function sample(batteryMv: number, minutes = 0): BatterySample {
@@ -16,6 +16,21 @@ describe('formatVoltage', () => {
 
   it('値が無ければダッシュ', () => {
     expect(formatVoltage(null)).toBe('—')
+  })
+})
+
+describe('isBatteryLow', () => {
+  it('警告しきい値（2.5V）未満を低下とみなす', () => {
+    expect(isBatteryLow(2500)).toBe(false)
+    expect(isBatteryLow(2499)).toBe(true)
+    expect(isBatteryLow(null)).toBe(false)
+  })
+})
+
+describe('formatTrendRate', () => {
+  it('符号付きの mV/日 にする', () => {
+    expect(formatTrendRate(-14.25)).toBe('-14.3 mV/日')
+    expect(formatTrendRate(3)).toBe('+3.0 mV/日')
   })
 })
 

@@ -1,4 +1,12 @@
-import type { BatteryHistoryResponse, BatterySample, DoorEvent, DoorHistoryResponse, DoorsResponse } from '../types/doors'
+import type {
+  BatteryHistoryResponse,
+  BatterySample,
+  DailyUsage,
+  DoorEvent,
+  DoorHistoryResponse,
+  DoorStatsResponse,
+  DoorsResponse,
+} from '../types/doors'
 
 /**
  * 開発用のダミーデータ。Azure Functions を起動せずに画面を確認するときは
@@ -85,6 +93,12 @@ export function createMockBatteryHistory(deviceId: string, hours: number): Batte
   }
 
   const values = samples.map((sample) => sample.batteryMv)
+  const latest = values[values.length - 1]
+  const elapsedDays = (samples.length - 1) / 24
+  const mvPerDay = elapsedDays > 0
+    ? Math.round(((latest - values[0]) / elapsedDays) * 10) / 10
+    : null
+
   return {
     deviceId,
     from: samples[0].sampledAt,
@@ -92,9 +106,72 @@ export function createMockBatteryHistory(deviceId: string, hours: number): Batte
     samples,
     summary: {
       sampleCount: samples.length,
-      latestMv: values[values.length - 1],
+      latestMv: latest,
       minMv: Math.min(...values),
       averageMv: Math.round(values.reduce((sum, value) => sum + value, 0) / values.length),
     },
+    trend: {
+      mvPerDay,
+      estimatedDaysRemaining: mvPerDay !== null && mvPerDay < 0
+        ? Math.max(0, Math.round((latest - 2300) / -mvPerDay))
+        : null,
+      thresholdMv: 2300,
+    },
   }
+}
+
+/** 開発用のダミー利用統計。開いた回数と開放時間が日ごとにばらつく。 */
+export function createMockStats(deviceId: string, days: number, tzOffsetMinutes: number): DoorStatsResponse {
+  const hourPattern = [8, 12, 18, 21, 7, 9, 15, 23]
+  const now = new Date()
+  const openCountByHour = Array.from({ length: 24 }, () => 0)
+  const daily: DailyUsage[] = []
+
+  let openCount = 0
+  let totalOpenSeconds = 0
+  let maxOpenSeconds = 0
+
+  for (let offset = days - 1; offset >= 0; offset--) {
+    const date = new Date(now.getTime() - offset * 86_400_000)
+    const opens = (offset * 7 + 3) % 6
+    let openSeconds = 0
+    let dayMax = 0
+
+    for (let index = 0; index < opens; index++) {
+      const duration = 45 + ((offset * 13 + index * 37) % 180)
+      openSeconds += duration
+      dayMax = Math.max(dayMax, duration)
+      openCountByHour[hourPattern[(offset + index) % hourPattern.length]]++
+    }
+
+    openCount += opens
+    totalOpenSeconds += openSeconds
+    maxOpenSeconds = Math.max(maxOpenSeconds, dayMax)
+    daily.push({
+      date: localDate(date, tzOffsetMinutes),
+      openCount: opens,
+      openSeconds,
+      maxOpenSeconds: dayMax,
+    })
+  }
+
+  return {
+    deviceId,
+    from: new Date(now.getTime() - (days - 1) * 86_400_000).toISOString(),
+    to: now.toISOString(),
+    tzOffsetMinutes,
+    days,
+    openCount,
+    closeCount: openCount,
+    totalOpenSeconds,
+    averageOpenSeconds: openCount === 0 ? 0 : Math.round(totalOpenSeconds / openCount),
+    maxOpenSeconds,
+    daily,
+    openCountByHour,
+  }
+}
+
+/** UTC の時刻を指定したオフセットの日付（yyyy-MM-dd）にする。 */
+function localDate(date: Date, tzOffsetMinutes: number): string {
+  return new Date(date.getTime() + tzOffsetMinutes * 60_000).toISOString().slice(0, 10)
 }

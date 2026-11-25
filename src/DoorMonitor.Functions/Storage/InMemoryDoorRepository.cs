@@ -76,6 +76,22 @@ public sealed class InMemoryDoorRepository : IDoorRepository
         }
     }
 
+    public Task<IReadOnlyList<DoorEvent>> GetDoorEventsAsync(
+        string deviceId,
+        DateTimeOffset from,
+        DateTimeOffset to,
+        CancellationToken cancellationToken)
+    {
+        lock (_eventsGate)
+        {
+            IReadOnlyList<DoorEvent> events = _events.TryGetValue(deviceId, out var stored)
+                ? stored.Values.Where(doorEvent => doorEvent.ChangedAt >= from && doorEvent.ChangedAt <= to).ToArray()
+                : Array.Empty<DoorEvent>();
+
+            return Task.FromResult(events);
+        }
+    }
+
     public Task UpsertBatterySampleAsync(BatterySample sample, CancellationToken cancellationToken)
     {
         lock (_batteryGate)

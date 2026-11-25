@@ -53,10 +53,39 @@ export interface BatterySummary {
   averageMv: number | null
 }
 
+export interface BatteryTrend {
+  mvPerDay: number | null
+  estimatedDaysRemaining: number | null
+  thresholdMv: number
+}
+
 export interface BatteryHistoryResponse {
   deviceId: string
   from: string
   to: string
   samples: BatterySample[]
   summary: BatterySummary
+  trend: BatteryTrend
+}
+
+export interface DailyUsage {
+  date: string
+  openCount: number
+  openSeconds: number
+  maxOpenSeconds: number
+}
+
+export interface DoorStatsResponse {
+  deviceId: string
+  from: string
+  to: string
+  tzOffsetMinutes: number
+  days: number
+  openCount: number
+  closeCount: number
+  totalOpenSeconds: number
+  averageOpenSeconds: number
+  maxOpenSeconds: number
+  daily: DailyUsage[]
+  openCountByHour: number[]
 }

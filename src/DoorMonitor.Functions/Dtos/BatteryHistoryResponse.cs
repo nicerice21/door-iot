@@ -8,7 +8,8 @@ public sealed record BatteryHistoryResponse(
     DateTimeOffset From,
     DateTimeOffset To,
     IReadOnlyList<BatterySampleDto> Samples,
-    BatterySummaryDto Summary);
+    BatterySummaryDto Summary,
+    BatteryTrendDto Trend);
 
 /// <summary>電池電圧のサンプル 1 件。SampledAt は 1 時間単位に丸めた UTC。</summary>
 public sealed record BatterySampleDto(DateTimeOffset SampledAt, int BatteryMv);
@@ -21,5 +22,16 @@ public sealed record BatterySummaryDto(int SampleCount, int? LatestMv, int? MinM
         ArgumentNullException.ThrowIfNull(summary);
 
         return new BatterySummaryDto(summary.SampleCount, summary.LatestMv, summary.MinMv, summary.AverageMv);
+    }
+}
+
+/// <summary>低下傾向と、動作下限までの残り日数の推定。推定できない項目は null。</summary>
+public sealed record BatteryTrendDto(double? MvPerDay, int? EstimatedDaysRemaining, int ThresholdMv)
+{
+    public static BatteryTrendDto From(BatteryTrend trend)
+    {
+        ArgumentNullException.ThrowIfNull(trend);
+
+        return new BatteryTrendDto(trend.MvPerDay, trend.EstimatedDaysRemaining, trend.ThresholdMv);
     }
 }

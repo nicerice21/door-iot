@@ -1,8 +1,21 @@
 import type { BatterySample, BatterySummary } from '../types/doors'
 
+/** 電池電圧の警告しきい値。TWELITE の動作下限 2.3V に余裕を持たせた 2.5V。 */
+export const LOW_BATTERY_THRESHOLD_MV = 2500
+
 /** mV を「2.95 V」の形にする。値が無ければ「—」。 */
 export function formatVoltage(mv: number | null): string {
   return mv === null ? '—' : `${(mv / 1000).toFixed(2)} V`
+}
+
+/** 警告しきい値を下回っているか。 */
+export function isBatteryLow(mv: number | null): boolean {
+  return mv !== null && mv < LOW_BATTERY_THRESHOLD_MV
+}
+
+/** 1 日あたりの変化量を「-14.3 mV/日」の形にする。 */
+export function formatTrendRate(mvPerDay: number): string {
+  return `${mvPerDay > 0 ? '+' : ''}${mvPerDay.toFixed(1)} mV/日`
 }
 
 export interface ChartGeometry {

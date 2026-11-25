@@ -86,3 +86,25 @@ export function formatTime(iso: string | null): string {
     second: '2-digit',
   })
 }
+
+/** 秒数を「1分5秒」「2時間3分」の形にする。 */
+export function formatDuration(totalSeconds: number): string {
+  if (!Number.isFinite(totalSeconds)) {
+    return '—'
+  }
+
+  const seconds = Math.max(0, Math.floor(totalSeconds))
+  if (seconds < 60) {
+    return `${seconds}秒`
+  }
+
+  const minutes = Math.floor(seconds / 60)
+  const remainingSeconds = seconds % 60
+  if (minutes < 60) {
+    return remainingSeconds > 0 ? `${minutes}分${remainingSeconds}秒` : `${minutes}分`
+  }
+
+  const hours = Math.floor(minutes / 60)
+  const remainingMinutes = minutes % 60
+  return remainingMinutes > 0 ? `${hours}時間${remainingMinutes}分` : `${hours}時間`
+}

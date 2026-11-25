@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { alertLevel, formatElapsed, formatRelative } from './time'
+import { alertLevel, formatDuration, formatElapsed, formatRelative } from './time'
 
 const NOW = Date.parse('2026-11-21T06:00:00Z')
 const secondsAgo = (seconds: number) => new Date(NOW - seconds * 1000).toISOString()
@@ -45,5 +45,21 @@ describe('formatRelative', () => {
     expect(formatRelative(secondsAgo(90), NOW)).toBe('1分前')
     expect(formatRelative(secondsAgo(7200), NOW)).toBe('2時間前')
     expect(formatRelative(secondsAgo(172800), NOW)).toBe('2日前')
+  })
+})
+
+describe('formatDuration', () => {
+  it('formats seconds, minutes and hours', () => {
+    expect(formatDuration(0)).toBe('0秒')
+    expect(formatDuration(45)).toBe('45秒')
+    expect(formatDuration(65)).toBe('1分5秒')
+    expect(formatDuration(120)).toBe('2分')
+    expect(formatDuration(3720)).toBe('1時間2分')
+    expect(formatDuration(7200)).toBe('2時間')
+  })
+
+  it('clamps invalid values', () => {
+    expect(formatDuration(-5)).toBe('0秒')
+    expect(formatDuration(Number.NaN)).toBe('—')
   })
 })

@@ -1,5 +1,5 @@
-import type { BatteryHistoryResponse, DoorHistoryResponse, DoorsResponse } from '../types/doors'
-import { createMockBatteryHistory, createMockHistory, createMockResponse } from './mock'
+import type { BatteryHistoryResponse, DoorHistoryResponse, DoorStatsResponse, DoorsResponse } from '../types/doors'
+import { createMockBatteryHistory, createMockHistory, createMockResponse, createMockStats } from './mock'
 
 const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
 const useMock = import.meta.env.VITE_USE_MOCK === 'true'
@@ -60,4 +60,29 @@ export async function fetchBatteryHistory(
   }
 
   return (await response.json()) as BatteryHistoryResponse
+}
+
+/** GET /api/doors/{deviceId}/stats を取得する。日付の境界はブラウザのタイムゾーンで決める。 */
+export async function fetchDoorStats(
+  deviceId: string,
+  days: number,
+  signal?: AbortSignal,
+): Promise<DoorStatsResponse> {
+  const tzOffsetMinutes = -new Date().getTimezoneOffset()
+
+  if (useMock) {
+    return createMockStats(deviceId, days, tzOffsetMinutes)
+  }
+
+  const query = `days=${days}&tzOffsetMinutes=${tzOffsetMinutes}`
+  const response = await fetch(`${apiBaseUrl}/api/doors/${encodeURIComponent(deviceId)}/stats?${query}`, {
+    signal,
+    headers: { Accept: 'application/json' },
+  })
+
+  if (!response.ok) {
+    throw new Error(`API が ${response.status} を返しました`)
+  }
+
+  return (await response.json()) as DoorStatsResponse
 }
