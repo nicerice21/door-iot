@@ -9,7 +9,7 @@
 | リソース | SKU / プラン | 用途 |
 | :--- | :--- | :--- |
 | Storage Account | Standard LRS（StorageV2） | `Devices` / `Gateways` / `DoorEvents` テーブルと Functions の内部状態 |
-| Functions | Consumption（Y1 / Linux / .NET 8 Isolated） | 4 本の HTTP API |
+| Functions | Consumption（Y1 / Linux / .NET 8 Isolated） | 6 本の HTTP API |
 | Static Web Apps | Free | React の画面 |
 | Log Analytics + Application Insights | 従量課金（日次上限 0.1 GB） | Functions のログと失敗の調査 |
 
@@ -235,6 +235,51 @@ npx @azure/static-web-apps-cli deploy web\dist `
 ```
 
 GitHub Actions から配置する場合は、取得したトークンをリポジトリのシークレット（例: `AZURE_STATIC_WEB_APPS_API_TOKEN`）に登録し、`Azure/static-web-apps-deploy@v1` を使うワークフローを追加します。`app_location: web`、`output_location: dist`、ビルド時の環境変数 `VITE_API_BASE_URL` を設定してください。このワークフローはまだリポジトリに含めていません。
+
+### 5.1 カスタムドメイン（任意）
+
+サブドメインを Cloudflare などの外部 DNS で運用する場合は、CNAME で Static Web Apps を指します。無料の TLS 証明書は Azure が自動で発行します。
+
+1. CNAME のターゲットを確認します。
+
+   ```powershell
+   az staticwebapp show -n $staticWebApp -g rg-door-iot --query defaultHostname -o tsv
+   ```
+
+   例: `mango-pond-07925d800.8.azurestaticapps.net`（リソースを作り直すと変わります）
+
+2. DNS に CNAME を追加します（Cloudflare の例）。
+
+   | 種類 | 名前 | ターゲット | プロキシ |
+   | :--- | :--- | :--- | :--- |
+   | CNAME | `door` | 上で確認したホスト名 | **DNS only（灰色）** |
+
+   Cloudflare のプロキシ（オレンジ）を有効にすると、Azure のドメイン検証と証明書発行が失敗します。検証中は必ず DNS only にしてください。
+
+3. DNS が反映されたら、Azure にドメインを登録します。
+
+   ```powershell
+   az staticwebapp hostname set `
+     --name $staticWebApp `
+     --resource-group rg-door-iot `
+     --hostname door.example.com
+   ```
+
+4. 反映を確認します。
+
+   ```powershell
+   az staticwebapp hostname list -n $staticWebApp -g rg-door-iot
+   curl.exe -I https://door.example.com
+   ```
+
+- CNAME 検証に失敗する場合は `--validation-method dns-txt-token` を使い、`_dnsauth.door` の TXT レコードに次の値を追加します。
+
+  ```powershell
+  az staticwebapp hostname show -n $staticWebApp -g rg-door-iot `
+    --hostname door.example.com --query validationToken -o tsv
+  ```
+
+- 証明書の発行には数分〜数時間かかることがあります。発行後も Cloudflare のプロキシは有効にしないでください（Azure の管理証明書と競合します）。
 
 ## 6. ゲートウェイを配置する
 

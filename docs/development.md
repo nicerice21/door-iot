@@ -56,8 +56,11 @@ TWELITE (App_Twelite 0x81)
   → DoorEvents（開閉が変化したときだけ履歴を記録）
   → DoorStateReducer（openedAt / lastSeenAt の更新）
   → Devices / Gateways テーブル（またはメモリ）
+  → BatterySamples（1時間に1件。同じ時間帯は上書き）
   → GET /api/doors（ポーリング） → React 画面（毎秒カウント）
   → GET /api/doors/{deviceId}/history（カードの「履歴」を開いたとき）
+  → GET /api/doors/{deviceId}/battery（カードの「電池」を開いたとき）
+  → GET /api/doors/{deviceId}/stats（カードの「利用」を開いたとき）
 ```
 
 ## 4. Azure Functions
@@ -317,6 +320,8 @@ WSL2 の Ubuntu 26.04（x64）で、実機の代わりに pty をシリアルポ
 - 学生サブスクリプションには「許可された場所」のポリシーがあり、`location` に許可リージョンを指定する必要があります（[deployment.md](deployment.md) 3.1）。
 - Linux の Consumption プランは 2028-09-30 に提供終了予定です。長期運用する場合は Flex Consumption への移行を検討してください（技術選定の変更になるため、要件定義 8.1 も合わせて更新が必要です）。
 - オフライン表示（電池抜き・PC停止）の実機確認と、`DoorEvents` の自動削除は未実施です。
+- 電池寿命の推定は直近の履歴に対する線形回帰で、目安として表示します。24 時間分に満たない場合は推定しません。
+- 利用統計は `DoorEvents` から毎回計算します。日付の境界は `tzOffsetMinutes` で決まり、開いたままのセッションは開放時間に含めません。
 
 ## 9. 実機での通し確認（2026-11-23）
 

@@ -4,7 +4,7 @@
 
 - 要件定義に加えて、実装雛形（Core / Gateway.Core / Gateway / Gateway.Cli / Functions / Web / Tests）と Azure リソース定義（`infra/main.bicep`）が存在する。CI は GitHub Actions（`.github/workflows/ci.yml`）で .NET・Web・Bicep・デプロイスクリプトの構文を検証する。
 - 構成: `README.md` / `LICENSE` (Apache-2.0) / `AGENTS.md` / `docs/requirements.md` / `docs/development.md` / `docs/deployment.md` / `infra/` / `scripts/` / `src/` / `tests/` / `web/`
-- ビルドやテストのコマンドを推測して書かない。以下は動作確認済み（2026-11-23）。
+- ビルドやテストのコマンドを推測して書かない。以下は動作確認済み（2026-11-26）。
   - `dotnet build DoorMonitor.sln`
   - `dotnet test tests\DoorMonitor.Core.Tests\DoorMonitor.Core.Tests.csproj`
   - `dotnet test tests\DoorMonitor.Gateway.Tests\DoorMonitor.Gateway.Tests.csproj`
@@ -14,7 +14,7 @@
   - WSL2 Ubuntu 26.04 で linux-x64 版を実行（pty をシリアルポートに見立て、偽 API へ送信するところまで。実機 MONOSTICK では未確認）
   - `azurite --location .azurite` と `func start --project src\DoorMonitor.Functions`（Table モードで API 通し確認済み）
   - `bicep build infra\main.bicep`（Bicep CLI 0.49.2。CI では `az bicep build`）
-- Azure へのデプロイ（`eastasia`）と実機（TWELITE + MONOSTICK）での通し確認は 2026-11-23 に完了し、1台構成のプロトタイプは完成。残りはオフライン表示の実機確認、デプロイの自動化（CD）、Timer Trigger によるクリーンアップとバックグラウンド死活判定（いずれも運用上の改善）。複数台運用とフロアマップ表示はプロトタイプの対象外。
+- Azure へのデプロイ（`eastasia`）と実機（TWELITE + MONOSTICK）での通し確認は 2026-11-23 に完了し、1台構成のプロトタイプは完成。その後、電池電圧の履歴・寿命推定・電圧警告と開閉の利用統計を追加した（2026-11-26）。残りはオフライン表示の実機確認、デプロイの自動化（CD）、Timer Trigger によるクリーンアップとハートビート欠測の検出（いずれも運用上の改善）。複数台運用とフロアマップ表示はプロトタイプの対象外。カスタムドメインは未設定（手順は `docs/deployment.md` 5.1）。
 - デプロイは `scripts/deploy.ps1` でまとめて実行できる。CI/CD（GitHub Actions からの自動デプロイ）は未実装。
 - ゲートウェイは `v*` タグの push で `.github/workflows/release.yml` が GitHub Release に ZIP と SHA256 を添付する。
 - ブランチは `main`、リモートは `nicerice21/door-iot`。運用ルールは未定義なので勝手に決めない。
