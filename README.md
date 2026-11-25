@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/nicerice21/door-iot/actions/workflows/ci.yml/badge.svg)](https://github.com/nicerice21/door-iot/actions/workflows/ci.yml)
 
-EngineeringDesign入門のプロトタイプ。TWELITE 1台とリードスイッチでドアの開閉を検知し、PC の常駐ゲートウェイ（Windows のトレイアプリ / Ubuntu のヘッドレス版）から Azure Functions へ送信、Web ブラウザで状態・「開いてからの経過時間」・電池電圧の推移を確認するシステムです。
+EngineeringDesign入門のプロトタイプ。TWELITE 1台とリードスイッチでドアの開閉を検知し、PC の常駐ゲートウェイ（Windows のトレイアプリ / Ubuntu のヘッドレス版）から Azure Functions へ送信、Web ブラウザで状態・「開いてからの経過時間」・電池電圧と寿命の目安・利用状況を確認するシステムです。
 
 設計の正本は [docs/requirements.md](docs/requirements.md) です。実装の詳細と運用手順は [docs/development.md](docs/development.md) を参照してください。
 
@@ -199,7 +199,7 @@ pwsh .\scripts\deploy.ps1 -Target Code
 
 ## 現在の実装範囲
 
-- 実装済み: TWELITE `App_Twelite` 電文パーサ、開閉状態の遷移ロジック、Azure Functions の5 API、ポーリング Web 画面、開閉履歴の表示、電池電圧の履歴とグラフ、C# トレイアプリ（Windows）、ヘッドレス版ゲートウェイ（Ubuntu）、送信失敗時の再送キュー、Azure リソース定義（Bicep）、Azure へのデプロイ、実機（TWELITE + MONOSTICK）での通し確認、GitHub Release 用のリリースワークフロー（タグ push）
+- 実装済み: TWELITE `App_Twelite` 電文パーサ、開閉状態の遷移ロジック、Azure Functions の6 API、ポーリング Web 画面、開閉履歴の表示、電池電圧の履歴・寿命推定・電圧警告、開閉の利用統計、C# トレイアプリ（Windows）、ヘッドレス版ゲートウェイ（Ubuntu）、送信失敗時の再送キュー、Azure リソース定義（Bicep）、Azure へのデプロイ、実機（TWELITE + MONOSTICK）での通し確認、GitHub Release 用のリリースワークフロー（タグ push）
 - 1台構成のプロトタイプは完成（2026-11-23）
 - プロトタイプの対象外: 複数台運用、フロアマップ表示
 - 残課題（運用上の改善）: オフライン表示（電池抜き・PC停止）の実機確認、デプロイの自動化（CD）

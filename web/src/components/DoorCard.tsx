@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import type { Door } from '../types/doors'
+import { isBatteryLow } from '../lib/battery'
 import { alertLevel, formatElapsed, formatRelative, formatTime } from '../lib/time'
 import { BatteryChart } from './BatteryChart'
 import { DoorHistory } from './DoorHistory'
+import { UsageStats } from './UsageStats'
 
 interface DoorCardProps {
   door: Door
@@ -12,6 +14,7 @@ interface DoorCardProps {
 export function DoorCard({ door, now }: DoorCardProps) {
   const [showHistory, setShowHistory] = useState(false)
   const [showBattery, setShowBattery] = useState(false)
+  const [showUsage, setShowUsage] = useState(false)
   const isOpen = door.state === 'open'
   const stateClass = !door.isOnline ? 'offline' : isOpen ? 'open' : 'closed'
   const statusLabel = !door.isOnline ? 'オフライン' : isOpen ? '開' : '閉'
@@ -22,6 +25,7 @@ export function DoorCard({ door, now }: DoorCardProps) {
   const battery = door.telemetry?.batteryMv == null
     ? '—'
     : `${(door.telemetry.batteryMv / 1000).toFixed(2)} V`
+  const batteryLow = isBatteryLow(door.telemetry?.batteryMv ?? null)
   const lqi = door.telemetry?.lqi ?? '—'
 
   return (
@@ -47,7 +51,9 @@ export function DoorCard({ door, now }: DoorCardProps) {
       </div>
 
       <footer className="door-card-footer">
-        <span title="電池電圧">電池 {battery}</span>
+        <span className={batteryLow ? 'battery-low' : undefined} title="電池電圧">
+          電池 {battery}{batteryLow ? '（低下）' : ''}
+        </span>
         <span title="電波強度">LQI {lqi}</span>
         <span title="最終受信">最終受信 {formatRelative(door.lastSeenAt, now)}</span>
         <div className="door-actions">
@@ -62,6 +68,14 @@ export function DoorCard({ door, now }: DoorCardProps) {
           <button
             type="button"
             className="panel-toggle"
+            aria-expanded={showUsage}
+            onClick={() => setShowUsage((current) => !current)}
+          >
+            {showUsage ? '利用を閉じる' : '利用'}
+          </button>
+          <button
+            type="button"
+            className="panel-toggle"
             aria-expanded={showHistory}
             onClick={() => setShowHistory((current) => !current)}
           >
@@ -72,6 +86,7 @@ export function DoorCard({ door, now }: DoorCardProps) {
 
       {showHistory && <DoorHistory deviceId={door.deviceId} />}
       {showBattery && <BatteryChart deviceId={door.deviceId} />}
+      {showUsage && <UsageStats deviceId={door.deviceId} />}
     </article>
   )
 }

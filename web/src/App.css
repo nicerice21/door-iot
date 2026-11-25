@@ -406,6 +406,109 @@
   font-size: 0.68rem;
 }
 
+.battery-trend {
+  margin-top: 6px;
+  color: #52606d;
+  font-size: 0.75rem;
+}
+
+.battery-trend.muted {
+  color: #7b8794;
+}
+
+.battery-low {
+  color: #c92a2a;
+  font-weight: 700;
+}
+
+.door-usage {
+  padding-top: 12px;
+  border-top: 1px solid #e4eaf1;
+}
+
+.usage-hours {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 40px;
+  margin-top: 6px;
+}
+
+.usage-hour {
+  display: flex;
+  flex: 1;
+  align-items: flex-end;
+  height: 100%;
+  background: #f1f5f9;
+  border-radius: 2px;
+}
+
+.usage-hour > span {
+  display: block;
+  width: 100%;
+  background: #4c6ef5;
+  border-radius: 2px;
+}
+
+.usage-hours-axis {
+  display: flex;
+  justify-content: space-between;
+  margin: 2px 0 10px;
+  color: #7b8794;
+  font-size: 0.65rem;
+}
+
+.usage-days {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 220px;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.usage-days li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #52606d;
+  font-size: 0.75rem;
+}
+
+.usage-date {
+  flex-shrink: 0;
+  width: 3.2rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.usage-bar {
+  flex: 1;
+  height: 8px;
+  border-radius: 999px;
+  background: #eef2f6;
+  overflow: hidden;
+}
+
+.usage-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: #2f9e44;
+}
+
+.usage-count {
+  width: 2.2rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.usage-time {
+  width: 4.2rem;
+  text-align: right;
+  color: #7b8794;
+  font-variant-numeric: tabular-nums;
+}
+
 .app-footer {
   display: flex;
   flex-wrap: wrap;

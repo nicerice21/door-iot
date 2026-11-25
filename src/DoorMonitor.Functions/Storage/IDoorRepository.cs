@@ -18,6 +18,13 @@ public interface IDoorRepository
     /// <summary>指定した子機の履歴を新しい順に取得する。</summary>
     Task<IReadOnlyList<DoorEvent>> GetDoorEventsAsync(string deviceId, int limit, CancellationToken cancellationToken);
 
+    /// <summary>指定した期間の履歴を古い順に取得する（利用統計の集計用）。</summary>
+    Task<IReadOnlyList<DoorEvent>> GetDoorEventsAsync(
+        string deviceId,
+        DateTimeOffset from,
+        DateTimeOffset to,
+        CancellationToken cancellationToken);
+
     /// <summary>電池電圧のサンプルを保存する。同じ時間帯のサンプルは上書きする。</summary>
     Task UpsertBatterySampleAsync(BatterySample sample, CancellationToken cancellationToken);
 

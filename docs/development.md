@@ -93,6 +93,7 @@ func start --project src\DoorMonitor.Functions
 | `GET` | `/api/doors` | なし（公開） | Web 向け状態一覧 |
 | `GET` | `/api/doors/{deviceId}/history?limit=20` | なし（公開） | 開閉履歴（新しい順、既定 20 件・最大 100 件） |
 | `GET` | `/api/doors/{deviceId}/battery?hours=168` | なし（公開） | 電池電圧の履歴（古い順、既定 168 時間・最大 720 時間） |
+| `GET` | `/api/doors/{deviceId}/stats?days=7&tzOffsetMinutes=540` | なし（公開） | 開閉回数・開放時間の日別／時間帯別の集計（既定 7 日・最大 90 日） |
 | `POST` | `/api/telemetry` | `X-Api-Key`（設定時） | 子機テレメトリ受信 |
 | `POST` | `/api/heartbeat` | `X-Api-Key`（設定時） | ゲートウェイ死活通知 |
 
@@ -113,7 +114,9 @@ func start --project src\DoorMonitor.Functions
 
 `state` は `open` / `closed` のみです。死活は `isOnline`（子機）と `gateway.status`（親機）で表現します。
 
-電池電圧の履歴は 1 時間に 1 件です。`samples` は古い順で、`summary` に最新・最小・平均を含みます（[requirements.md 5.3](requirements.md#53-電池電圧履歴のレスポンス例-get-apidoorsdeviceidbattery)）。
+電池電圧の履歴は 1 時間に 1 件です。`samples` は古い順で、`summary` に最新・最小・平均、`trend` に低下量（mV/日）と動作下限までの日数を含みます（[requirements.md 5.3](requirements.md#53-電池電圧履歴のレスポンス例-get-apidoorsdeviceidbattery)）。24 時間分に満たない場合は `trend` の推定値が `null` になります。
+
+利用統計は期間内の `DoorEvents` から毎回計算します。日付の境界は `tzOffsetMinutes`（UTC からの差）で決めるため、Web はブラウザのタイムゾーンを渡します（JST は 540）。
 
 ### 4.3 設定
 
@@ -162,6 +165,11 @@ npm run dev
 各カードの「履歴」を押すと、直近 20 件の開閉履歴を取得して表示します。履歴の取得は開いたときだけ行い、ポーリングはしません。閉じたイベントには、対応する開放時間（`changedAt - openedAt`）も表示します。
 
 各カードの「電池」を押すと、`GET /api/doors/{deviceId}/battery` から電圧の履歴を取得し、SVG の折れ線と最新・最小・平均を表示します。表示期間は 24時間 / 7日 / 30日から選べます（既定 7日）。グラフ用のライブラリは追加せず、座標計算は `src/lib/battery.ts` の純粋関数にまとめています。
+
+- 履歴が 24 時間分以上あり低下傾向があれば「動作下限 2.3V まで約 N 日」と低下量（mV/日）を表示します。
+- 現在の電圧が 2.5V を下回ると、カードの電池表示が赤くなり「（低下）」が付きます。
+
+各カードの「利用」を押すと、`GET /api/doors/{deviceId}/stats` から開閉回数・平均／最長／合計の開放時間、日別のバー、時間帯別の分布を表示します。期間は 7日 / 30日から選べます。日付の境界はブラウザのタイムゾーンで決まります。
 
 ## 6. PC ゲートウェイ
 

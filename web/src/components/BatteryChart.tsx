@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { fetchBatteryHistory } from '../api/doors'
-import { buildChartGeometry, formatAxisTime, formatVoltage } from '../lib/battery'
+import { buildChartGeometry, formatAxisTime, formatTrendRate, formatVoltage } from '../lib/battery'
 import type { BatteryHistoryResponse } from '../types/doors'
 
 const CHART_WIDTH = 276
@@ -85,6 +85,7 @@ function BatteryChartBody({ history, hours }: { history: BatteryHistoryResponse;
   }
 
   const { summary } = history
+  const { trend } = history
   const first = history.samples[0]
   const last = history.samples[history.samples.length - 1]
 
@@ -133,6 +134,17 @@ function BatteryChartBody({ history, hours }: { history: BatteryHistoryResponse;
         <span>{formatAxisTime(first.sampledAt, hours)}</span>
         <span>{formatAxisTime(last.sampledAt, hours)}</span>
       </div>
+
+      {trend.estimatedDaysRemaining !== null ? (
+        <p className="battery-trend">
+          動作下限 {formatVoltage(trend.thresholdMv)} まで約 {trend.estimatedDaysRemaining} 日
+          {trend.mvPerDay !== null && `（${formatTrendRate(trend.mvPerDay)}）`}
+        </p>
+      ) : trend.mvPerDay !== null ? (
+        <p className="battery-trend muted">低下傾向は見られません（{formatTrendRate(trend.mvPerDay)}）</p>
+      ) : (
+        <p className="battery-trend muted">推定には 24 時間以上の履歴が必要です。</p>
+      )}
     </>
   )
 }

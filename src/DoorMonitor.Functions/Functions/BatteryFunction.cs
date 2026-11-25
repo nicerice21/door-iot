@@ -65,7 +65,8 @@ public sealed class BatteryFunction
             from,
             to,
             samples.Select(sample => new BatterySampleDto(sample.SampledAt, sample.BatteryMv)).ToArray(),
-            BatterySummaryDto.From(BatterySummary.From(samples)));
+            BatterySummaryDto.From(BatterySummary.From(samples)),
+            BatteryTrendDto.From(BatteryTrend.From(samples)));
 
         return await ApiResponses
             .JsonAsync(request, HttpStatusCode.OK, response, cancellationToken)
