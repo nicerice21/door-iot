@@ -1,19 +1,22 @@
 using Azure;
 using Azure.Data.Tables;
 using DoorMonitor.Core.Doors;
+using DoorMonitor.Core.Telemetry;
 
 namespace DoorMonitor.Functions.Storage;
 
-/// <summary>Azure Table Storage 実装。Devices / Gateways / DoorEvents の3テーブルを使う。</summary>
+/// <summary>Azure Table Storage 実装。Devices / Gateways / DoorEvents / BatterySamples の4テーブルを使う。</summary>
 public sealed class TableDoorRepository : IDoorRepository
 {
     private const string DevicesTable = "Devices";
     private const string GatewaysTable = "Gateways";
     private const string DoorEventsTable = "DoorEvents";
+    private const string BatterySamplesTable = "BatterySamples";
 
     private readonly TableClient _devices;
     private readonly TableClient _gateways;
     private readonly TableClient _doorEvents;
+    private readonly TableClient _batterySamples;
     private readonly SemaphoreSlim _initGate = new(1, 1);
     private volatile bool _initialized;
 
@@ -23,6 +26,7 @@ public sealed class TableDoorRepository : IDoorRepository
         _devices = service.GetTableClient(DevicesTable);
         _gateways = service.GetTableClient(GatewaysTable);
         _doorEvents = service.GetTableClient(DoorEventsTable);
+        _batterySamples = service.GetTableClient(BatterySamplesTable);
     }
 
     public async Task<IReadOnlyList<DoorSnapshot>> GetDoorsAsync(CancellationToken cancellationToken)
@@ -98,6 +102,39 @@ public sealed class TableDoorRepository : IDoorRepository
         return events;
     }
 
+    public async Task UpsertBatterySampleAsync(BatterySample sample, CancellationToken cancellationToken)
+    {
+        await EnsureTablesAsync(cancellationToken).ConfigureAwait(false);
+
+        // 同じ時間帯のサンプルは上書きする。ゲートウェイは受信順に送るため、後着が新しい観測になる。
+        await _batterySamples
+            .UpsertEntityAsync(BatterySampleMapper.ToEntity(sample), TableUpdateMode.Replace, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    public async Task<IReadOnlyList<BatterySample>> GetBatterySamplesAsync(
+        string deviceId,
+        DateTimeOffset from,
+        DateTimeOffset to,
+        CancellationToken cancellationToken)
+    {
+        await EnsureTablesAsync(cancellationToken).ConfigureAwait(false);
+
+        // RowKey は時刻の反転値。期間 [from, to] は RowKey の [反転(to), 反転(from)] に対応する。
+        var filter = TableClient.CreateQueryFilter(
+            $"PartitionKey eq {deviceId} and RowKey ge {TableRowKeys.Inverted(to)} and RowKey le {TableRowKeys.Inverted(from)}");
+
+        var samples = new List<BatterySample>();
+        await foreach (var entity in _batterySamples.QueryAsync<BatterySampleEntity>(filter, cancellationToken: cancellationToken).ConfigureAwait(false))
+        {
+            samples.Add(BatterySampleMapper.ToSample(entity));
+        }
+
+        // RowKey の昇順は新しい順なので、返すときは古い順に直す。
+        samples.Reverse();
+        return samples;
+    }
+
     public async Task<GatewayRecord?> GetGatewayAsync(string gatewayId, CancellationToken cancellationToken)
     {
         await EnsureTablesAsync(cancellationToken).ConfigureAwait(false);
@@ -156,6 +193,7 @@ public sealed class TableDoorRepository : IDoorRepository
             await _devices.CreateIfNotExistsAsync(cancellationToken).ConfigureAwait(false);
             await _gateways.CreateIfNotExistsAsync(cancellationToken).ConfigureAwait(false);
             await _doorEvents.CreateIfNotExistsAsync(cancellationToken).ConfigureAwait(false);
+            await _batterySamples.CreateIfNotExistsAsync(cancellationToken).ConfigureAwait(false);
             _initialized = true;
         }
         finally

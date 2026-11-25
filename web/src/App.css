@@ -207,8 +207,13 @@
   font-size: 0.78rem;
 }
 
-.history-toggle {
+.door-actions {
+  display: flex;
+  gap: 6px;
   margin-left: auto;
+}
+
+.panel-toggle {
   padding: 3px 12px;
   border: 1px solid #cbd5e1;
   border-radius: 999px;
@@ -218,11 +223,11 @@
   cursor: pointer;
 }
 
-.history-toggle:hover {
+.panel-toggle:hover {
   background: #e8eef5;
 }
 
-.history-toggle:focus-visible {
+.panel-toggle:focus-visible {
   outline: 2px solid #4c6ef5;
   outline-offset: 2px;
 }
@@ -291,6 +296,114 @@
 .history-duration {
   margin-left: auto;
   color: #7b8794;
+}
+
+.door-battery {
+  padding-top: 12px;
+  border-top: 1px solid #e4eaf1;
+}
+
+.battery-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.battery-header h3 {
+  color: #52606d;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.battery-ranges {
+  display: flex;
+  gap: 4px;
+}
+
+.battery-range {
+  padding: 2px 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  background: #f8fafc;
+  color: #52606d;
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+
+.battery-range.selected {
+  border-color: #2f9e44;
+  background: #ebfbee;
+  color: #2b8a3e;
+}
+
+.battery-range:focus-visible {
+  outline: 2px solid #4c6ef5;
+  outline-offset: 2px;
+}
+
+.battery-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin-bottom: 6px;
+}
+
+.battery-summary div {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.battery-summary dt {
+  color: #7b8794;
+  font-size: 0.72rem;
+}
+
+.battery-summary dd {
+  color: #334e68;
+  font-size: 0.85rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.battery-chart {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.chart-line {
+  fill: none;
+  stroke: #2f9e44;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.chart-point {
+  fill: #2f9e44;
+}
+
+.chart-grid {
+  stroke: #e4eaf1;
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+
+.chart-axis {
+  fill: #7b8794;
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+}
+
+.battery-axis-range {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 2px;
+  color: #7b8794;
+  font-size: 0.68rem;
 }
 
 .app-footer {

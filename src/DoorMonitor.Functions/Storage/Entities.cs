@@ -1,6 +1,7 @@
 using Azure;
 using Azure.Data.Tables;
 using DoorMonitor.Core.Doors;
+using DoorMonitor.Core.Telemetry;
 
 namespace DoorMonitor.Functions.Storage;
 
@@ -68,12 +69,32 @@ public sealed class DoorEventEntity : ITableEntity
     public DateTimeOffset? OpenedAt { get; set; }
 }
 
+/// <summary>BatterySamples テーブルの行。1 時間に 1 行（同じ時間帯は上書き）。</summary>
+public sealed class BatterySampleEntity : ITableEntity
+{
+    public string PartitionKey { get; set; } = string.Empty;
+
+    public string RowKey { get; set; } = string.Empty;
+
+    public DateTimeOffset? Timestamp { get; set; }
+
+    public ETag ETag { get; set; }
+
+    public DateTimeOffset SampledAt { get; set; }
+
+    public DateTimeOffset ObservedAt { get; set; }
+
+    public int BatteryMv { get; set; }
+
+    public int? Lqi { get; set; }
+}
+
 internal static class DoorEventMapper
 {
     public static DoorEventEntity ToEntity(DoorEvent doorEvent) => new()
     {
         PartitionKey = doorEvent.DeviceId,
-        RowKey = CreateRowKey(doorEvent.ChangedAt),
+        RowKey = TableRowKeys.Inverted(doorEvent.ChangedAt),
         State = doorEvent.State == DoorState.Open ? DoorStateJsonConverter.OpenValue : DoorStateJsonConverter.ClosedValue,
         ChangedAt = doorEvent.ChangedAt,
         OpenedAt = doorEvent.OpenedAt,
@@ -86,10 +107,35 @@ internal static class DoorEventMapper
         ChangedAt = entity.ChangedAt,
         OpenedAt = entity.OpenedAt,
     };
+}
 
+internal static class BatterySampleMapper
+{
+    public static BatterySampleEntity ToEntity(BatterySample sample) => new()
+    {
+        PartitionKey = sample.DeviceId,
+        RowKey = TableRowKeys.Inverted(sample.SampledAt),
+        SampledAt = sample.SampledAt,
+        ObservedAt = sample.ObservedAt,
+        BatteryMv = sample.BatteryMv,
+        Lqi = sample.Lqi,
+    };
+
+    public static BatterySample ToSample(BatterySampleEntity entity) => new()
+    {
+        DeviceId = entity.PartitionKey,
+        SampledAt = entity.SampledAt,
+        ObservedAt = entity.ObservedAt,
+        BatteryMv = entity.BatteryMv,
+        Lqi = entity.Lqi,
+    };
+}
+
+internal static class TableRowKeys
+{
     /// <summary>時刻を反転した 19 桁の行キー。RowKey の昇順が新しい順になる。</summary>
-    public static string CreateRowKey(DateTimeOffset changedAt)
-        => (DateTimeOffset.MaxValue.UtcTicks - changedAt.UtcTicks)
+    public static string Inverted(DateTimeOffset at)
+        => (DateTimeOffset.MaxValue.UtcTicks - at.UtcTicks)
             .ToString("D19", System.Globalization.CultureInfo.InvariantCulture);
 }
 
