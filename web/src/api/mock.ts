@@ -1,4 +1,4 @@
-import type { DoorEvent, DoorHistoryResponse, DoorsResponse } from '../types/doors'
+import type { BatteryHistoryResponse, BatterySample, DoorEvent, DoorHistoryResponse, DoorsResponse } from '../types/doors'
 
 /**
  * 開発用のダミーデータ。Azure Functions を起動せずに画面を確認するときは
@@ -66,4 +66,35 @@ export function createMockHistory(deviceId: string): DoorHistoryResponse {
   }
 
   return { deviceId, events }
+}
+
+/**
+ * 開発用のダミー電池電圧。1 時間に 1 件で、ゆるやかに降下させてグラフを確認できるようにする。
+ * 直近の値は createMockResponse の現在状態（2950mV 前後）と大きくずれないようにする。
+ */
+export function createMockBatteryHistory(deviceId: string, hours: number): BatteryHistoryResponse {
+  const bucketNow = new Date()
+  bucketNow.setMinutes(0, 0, 0)
+
+  const samples: BatterySample[] = []
+  for (let offset = hours - 1; offset >= 0; offset--) {
+    const sampledAt = new Date(bucketNow.getTime() - offset * 3_600_000)
+    const progress = hours <= 1 ? 1 : (hours - 1 - offset) / (hours - 1)
+    const batteryMv = Math.round(3050 - 100 * progress + 6 * Math.sin(offset / 7))
+    samples.push({ sampledAt: sampledAt.toISOString(), batteryMv })
+  }
+
+  const values = samples.map((sample) => sample.batteryMv)
+  return {
+    deviceId,
+    from: samples[0].sampledAt,
+    to: new Date().toISOString(),
+    samples,
+    summary: {
+      sampleCount: samples.length,
+      latestMv: values[values.length - 1],
+      minMv: Math.min(...values),
+      averageMv: Math.round(values.reduce((sum, value) => sum + value, 0) / values.length),
+    },
+  }
 }

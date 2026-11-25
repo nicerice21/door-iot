@@ -1,5 +1,5 @@
-import type { DoorHistoryResponse, DoorsResponse } from '../types/doors'
-import { createMockHistory, createMockResponse } from './mock'
+import type { BatteryHistoryResponse, DoorHistoryResponse, DoorsResponse } from '../types/doors'
+import { createMockBatteryHistory, createMockHistory, createMockResponse } from './mock'
 
 const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
 const useMock = import.meta.env.VITE_USE_MOCK === 'true'
@@ -38,4 +38,26 @@ export async function fetchDoorHistory(deviceId: string, signal?: AbortSignal): 
   }
 
   return (await response.json()) as DoorHistoryResponse
+}
+
+/** GET /api/doors/{deviceId}/battery?hours= を取得する。期間は時間単位（既定 168 = 7日）。 */
+export async function fetchBatteryHistory(
+  deviceId: string,
+  hours: number,
+  signal?: AbortSignal,
+): Promise<BatteryHistoryResponse> {
+  if (useMock) {
+    return createMockBatteryHistory(deviceId, hours)
+  }
+
+  const response = await fetch(`${apiBaseUrl}/api/doors/${encodeURIComponent(deviceId)}/battery?hours=${hours}`, {
+    signal,
+    headers: { Accept: 'application/json' },
+  })
+
+  if (!response.ok) {
+    throw new Error(`API が ${response.status} を返しました`)
+  }
+
+  return (await response.json()) as BatteryHistoryResponse
 }

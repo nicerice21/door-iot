@@ -55,6 +55,14 @@ public sealed class TelemetryFunction
         }
 
         await _repository.UpsertDoorAsync(updated, cancellationToken).ConfigureAwait(false);
+
+        // 電池電圧は 1 時間に 1 件の履歴として残す（同じ時間帯は上書き）。
+        var batterySample = BatterySample.FromReport(report);
+        if (batterySample is not null)
+        {
+            await _repository.UpsertBatterySampleAsync(batterySample, cancellationToken).ConfigureAwait(false);
+        }
+
         await _repository.TouchGatewayAsync(report.GatewayId, report.ObservedAt, cancellationToken).ConfigureAwait(false);
 
         return await ApiResponses.JsonAsync(

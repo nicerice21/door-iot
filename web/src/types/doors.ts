@@ -40,3 +40,23 @@ export interface DoorHistoryResponse {
   deviceId: string
   events: DoorEvent[]
 }
+
+export interface BatterySample {
+  sampledAt: string
+  batteryMv: number
+}
+
+export interface BatterySummary {
+  sampleCount: number
+  latestMv: number | null
+  minMv: number | null
+  averageMv: number | null
+}
+
+export interface BatteryHistoryResponse {
+  deviceId: string
+  from: string
+  to: string
+  samples: BatterySample[]
+  summary: BatterySummary
+}

@@ -92,6 +92,7 @@ func start --project src\DoorMonitor.Functions
 | :--- | :--- | :--- | :--- |
 | `GET` | `/api/doors` | なし（公開） | Web 向け状態一覧 |
 | `GET` | `/api/doors/{deviceId}/history?limit=20` | なし（公開） | 開閉履歴（新しい順、既定 20 件・最大 100 件） |
+| `GET` | `/api/doors/{deviceId}/battery?hours=168` | なし（公開） | 電池電圧の履歴（古い順、既定 168 時間・最大 720 時間） |
 | `POST` | `/api/telemetry` | `X-Api-Key`（設定時） | 子機テレメトリ受信 |
 | `POST` | `/api/heartbeat` | `X-Api-Key`（設定時） | ゲートウェイ死活通知 |
 
@@ -112,6 +113,8 @@ func start --project src\DoorMonitor.Functions
 
 `state` は `open` / `closed` のみです。死活は `isOnline`（子機）と `gateway.status`（親機）で表現します。
 
+電池電圧の履歴は 1 時間に 1 件です。`samples` は古い順で、`summary` に最新・最小・平均を含みます（[requirements.md 5.3](requirements.md#53-電池電圧履歴のレスポンス例-get-apidoorsdeviceidbattery)）。
+
 ### 4.3 設定
 
 | キー | 既定値 | 内容 |
@@ -130,8 +133,11 @@ func start --project src\DoorMonitor.Functions
 | `Devices` | `door` | デバイスID | `Name`, `State`, `OpenedAt`, `LastChangedAt`, `LastSeenAt`, `BatteryMv`, `Lqi` |
 | `Gateways` | `gateway` | ゲートウェイID | `LastSeenAt` |
 | `DoorEvents` | デバイスID | 変化時刻を反転した 19 桁の連番 | `State`, `ChangedAt`, `OpenedAt` |
+| `BatterySamples` | デバイスID | 時間帯の開始時刻を反転した 19 桁の連番 | `SampledAt`, `ObservedAt`, `BatteryMv`, `Lqi` |
 
 `DoorEvents` は開閉が変化したときだけ 1 行追加します。RowKey の昇順が新しい順になるため、履歴は `limit` 件だけを効率よく取得できます。RowKey は変化時刻から決まるので、再送が重複しても同じ行を上書きします。
+
+`BatterySamples` は `observedAt` を UTC の毎時 0 分へ丸めた `SampledAt` ごとに 1 行です。同じ 1 時間内の受信は同じ行を上書きするため、行数は最大でも 1 時間に 1 件（1 台あたり年間約 8,760 行）になります。`RowKey` の範囲で期間を絞り、昇順に読むと新しい順になるので、取得後に反転して古い順で返します。
 
 `Name` は表示名です。未設定の場合は API が `ドア {logicalId}` を返します。旧バージョンが使用していた `MetaJson` 列は読み書きしません（次に `Devices` の行を更新したとき、Replace により削除されます）。
 
@@ -154,6 +160,8 @@ npm run dev
 経過時間はサーバーでは計算しません。`openedAt` をブラウザ側で毎秒差分計算するため、ポーリング間隔に依存しません。
 
 各カードの「履歴」を押すと、直近 20 件の開閉履歴を取得して表示します。履歴の取得は開いたときだけ行い、ポーリングはしません。閉じたイベントには、対応する開放時間（`changedAt - openedAt`）も表示します。
+
+各カードの「電池」を押すと、`GET /api/doors/{deviceId}/battery` から電圧の履歴を取得し、SVG の折れ線と最新・最小・平均を表示します。表示期間は 24時間 / 7日 / 30日から選べます（既定 7日）。グラフ用のライブラリは追加せず、座標計算は `src/lib/battery.ts` の純粋関数にまとめています。
 
 ## 6. PC ゲートウェイ
 

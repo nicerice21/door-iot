@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using DoorMonitor.Core.Doors;
+using DoorMonitor.Core.Telemetry;
 
 namespace DoorMonitor.Functions.Storage;
 
@@ -12,10 +13,15 @@ public sealed class InMemoryDoorRepository : IDoorRepository
     /// <summary>メモリ実装が無限に増えないよう、子機ごとの履歴件数を制限する。</summary>
     private const int MaxEventsPerDevice = 500;
 
+    /// <summary>電池電圧は 60 日分（1 時間に 1 件）まで保持する。</summary>
+    private const int MaxBatterySamplesPerDevice = 24 * 60;
+
     private readonly ConcurrentDictionary<string, DoorSnapshot> _doors = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, GatewayRecord> _gateways = new(StringComparer.Ordinal);
     private readonly object _eventsGate = new();
     private readonly Dictionary<string, SortedDictionary<long, DoorEvent>> _events = new(StringComparer.Ordinal);
+    private readonly object _batteryGate = new();
+    private readonly Dictionary<string, SortedDictionary<long, BatterySample>> _batterySamples = new(StringComparer.Ordinal);
 
     public Task<IReadOnlyList<DoorSnapshot>> GetDoorsAsync(CancellationToken cancellationToken)
     {
@@ -67,6 +73,44 @@ public sealed class InMemoryDoorRepository : IDoorRepository
                 : Array.Empty<DoorEvent>();
 
             return Task.FromResult(events);
+        }
+    }
+
+    public Task UpsertBatterySampleAsync(BatterySample sample, CancellationToken cancellationToken)
+    {
+        lock (_batteryGate)
+        {
+            if (!_batterySamples.TryGetValue(sample.DeviceId, out var samples))
+            {
+                samples = new SortedDictionary<long, BatterySample>();
+                _batterySamples[sample.DeviceId] = samples;
+            }
+
+            // 同じ時間帯は上書きする（再送に対して冪等）。
+            samples[sample.SampledAt.UtcTicks] = sample;
+
+            while (samples.Count > MaxBatterySamplesPerDevice)
+            {
+                samples.Remove(samples.Keys.First());
+            }
+        }
+
+        return Task.CompletedTask;
+    }
+
+    public Task<IReadOnlyList<BatterySample>> GetBatterySamplesAsync(
+        string deviceId,
+        DateTimeOffset from,
+        DateTimeOffset to,
+        CancellationToken cancellationToken)
+    {
+        lock (_batteryGate)
+        {
+            IReadOnlyList<BatterySample> samples = _batterySamples.TryGetValue(deviceId, out var stored)
+                ? stored.Values.Where(sample => sample.SampledAt >= from && sample.SampledAt <= to).ToArray()
+                : Array.Empty<BatterySample>();
+
+            return Task.FromResult(samples);
         }
     }
 
